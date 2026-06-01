@@ -95,6 +95,68 @@ func TestAgent(t *testing.T) {
 	assert.Equal(t, 3, len(details.ModelResponses))
 }
 
+// TestAgent_RecordedRequestsNotMutated guards against the slice-aliasing bug:
+// a request recorded in details.ModelRequests must not be mutated by appends to
+// the agent's working message slice in a later iteration. With tools present,
+// each recorded request must end with that iteration's guidance message.
+func TestAgent_RecordedRequestsNotMutated(t *testing.T) {
+	type TestRequest struct {
+		Message string `json:"message"`
+	}
+	type TestResponse struct {
+		Result string `json:"result"`
+	}
+
+	echoTool := hippo.NewTool(
+		"echo_tool",
+		"Echoes back the input message",
+		func(ctx context.Context, input *TestRequest, invocationId string) (*TestResponse, error) {
+			return &TestResponse{Result: "echo: " + input.Message}, nil
+		},
+		&TestRequest{},
+		&TestResponse{},
+	)
+
+	// Two tool-calling iterations, then a final answer. The second tool-calling
+	// iteration is the one that previously corrupted the first recorded request.
+	mockModel := agenttest.NewMockModel(
+		"test_agent",
+		hippo.AnthropicClaudeHaiku45,
+		[]*base.ModelCallResponse{
+			{ToolCalls: []base.ModelToolCall{toolCall("1", "echo_tool", `{"message": "one"}`)}},
+			{ToolCalls: []base.ModelToolCall{toolCall("2", "echo_tool", `{"message": "two"}`)}},
+			{Content: `{"result": "done"}`},
+		},
+	)
+	mockProvider := agenttest.NewMockModelProvider()
+	mockProvider.AddModel("test_agent", mockModel)
+
+	agent, err := hippo.NewAgentWithTemplateText(
+		"Echo agent.",
+		&TestRequest{},
+		&TestResponse{},
+	).
+		SetName("test_agent").
+		SetModel(mockProvider, hippo.AnthropicClaudeHaiku45).
+		AddTool(echoTool).
+		Build()
+	require.NoError(t, err)
+
+	_, details, err := agent.ExecuteWithDetails(context.Background(), &TestRequest{Message: "hi"}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(details.ModelRequests))
+
+	// Each recorded request (tools present) must end with its iteration guidance.
+	for i, req := range details.ModelRequests {
+		last := req.Messages[len(req.Messages)-1]
+		tp, ok := last.Parts[0].(base.TextPart)
+		if !ok {
+			t.Fatalf("request %d: last message is %T, want a TextPart iteration guidance", i, last.Parts[0])
+		}
+		assert.Contains(t, tp.Text, "Iteration", "request %d last message should be iteration guidance, got %q", i, tp.Text)
+	}
+}
+
 func TestAgent_ObserverCallbacks(t *testing.T) {
 	type TestRequest struct {
 		Message string `json:"message"`

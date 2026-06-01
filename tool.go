@@ -38,6 +38,10 @@ type Tool[I any, O any] struct {
 	resultType   reflect.Type // Type of the result struct
 	sampleInput  I            // Sample input for schema generation
 	sampleOutput O            // Sample output for documentation
+
+	// schema is the JSON Schema for the input type, computed once at
+	// construction (sampleInput is immutable) rather than on every call.
+	schema map[string]interface{}
 }
 
 // Ensure Tool implements AnyTool (with any types for the generic).
@@ -72,6 +76,11 @@ func newTool[I any, O any](
 		resultType = resultType.Elem()
 	}
 
+	schema, err := jsonx.SchemaMap(sampleInput)
+	if err != nil {
+		schema = map[string]interface{}{"type": "object"}
+	}
+
 	return &Tool[I, O]{
 		name:         name,
 		description:  description,
@@ -80,6 +89,7 @@ func newTool[I any, O any](
 		resultType:   resultType,
 		sampleInput:  sampleInput,
 		sampleOutput: sampleOutput,
+		schema:       schema,
 	}
 }
 
@@ -91,15 +101,10 @@ func (t *Tool[I, O]) Description() string {
 	return t.description
 }
 
-// ParametersSchema returns the JSON Schema for the tool's parameters.
+// ParametersSchema returns the JSON Schema for the tool's parameters. The
+// schema is computed once at construction and reused.
 func (t *Tool[I, O]) ParametersSchema() map[string]interface{} {
-	schemaMap, err := jsonx.SchemaMap(t.sampleInput)
-	if err != nil {
-		return map[string]interface{}{
-			"type": "object",
-		}
-	}
-	return schemaMap
+	return t.schema
 }
 
 // Invoke calls the tool's function with the provided JSON parameters.

@@ -153,7 +153,6 @@ type toolboxToolCallResult struct {
 	pendingMessages []ModelMessage
 	toolResponses   []ModelToolCallResponse
 	toolCallMetrics []ModelToolCallMetrics
-	error           error
 }
 
 func newToolboxToolCallResult(
@@ -165,16 +164,6 @@ func newToolboxToolCallResult(
 		pendingMessages: pendingMessages,
 		toolResponses:   toolResponses,
 		toolCallMetrics: toolCallMetrics,
-		error:           nil,
-	}
-}
-
-func newToolboxCallErrorResult(err error) toolboxToolCallResult {
-	return toolboxToolCallResult{
-		pendingMessages: []ModelMessage{},
-		toolResponses:   []ModelToolCallResponse{},
-		toolCallMetrics: []ModelToolCallMetrics{},
-		error:           err,
 	}
 }
 
@@ -211,44 +200,35 @@ func (t *Toolbox) executeModelToolCalls(
 	t.delegate.RewriteToolCalls(toolsCtx, toolCalls)
 	verifyToolCallsRewriteResult(toolCalls)
 
-	// 2 messages (call + response) per tool call
-	pendingMessages := make([]ModelMessage, 0, 2*len(toolCalls))
-	idToToolCall := make(map[string]ModelToolCall)
-	for _, toolCall := range toolCalls {
-		idToToolCall[toolCall.ToolCallID] = *toolCall
-	}
-
+	// Execute calls concurrently but collect results positionally, so each
+	// response is paired with the exact tool call that produced it. Pairing by
+	// ToolCallID would collapse calls that share an ID or have an empty ID
+	// (e.g. Google AI never returns tool-call IDs).
+	responses := make([]ModelToolCallResponse, len(toolCalls))
 	var wg sync.WaitGroup
-	resultChan := make(chan ModelToolCallResponse, len(toolCalls))
-
-	for _, toolCall := range toolCalls {
-		wg.Add(1)
+	for i, toolCall := range toolCalls {
 		if toolCall.DelegateAction == base.ToolDelegateActionRejected {
-			resultChan <- t.rejectToolCall(toolsCtx, *toolCall)
-			wg.Done()
+			responses[i] = t.rejectToolCall(toolsCtx, *toolCall)
 			continue
 		}
-		go func(tc ModelToolCall) {
+		wg.Add(1)
+		go func(i int, tc ModelToolCall) {
 			defer wg.Done()
-			resultChan <- t.executeToolCall(toolsCtx, tc)
-		}(*toolCall)
+			responses[i] = t.executeToolCall(toolsCtx, tc)
+		}(i, *toolCall)
 	}
+	wg.Wait()
 
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
+	// 2 messages (call + response) per tool call, paired in call order.
+	pendingMessages := make([]ModelMessage, 0, 2*len(toolCalls))
 	toolResponses := make([]ModelToolCallResponse, 0, len(toolCalls))
 	toolCallMetrics := make([]ModelToolCallMetrics, 0, len(toolCalls))
-	for msg := range resultChan {
-		pendingMessages = append(
-			pendingMessages,
-			NewToolCallMessage(idToToolCall[msg.ToolCallID]),
-		)
-		toolResponses = append(toolResponses, msg)
-		pendingMessages = append(pendingMessages, NewToolCallResponseMessage(msg))
-		toolCallMetrics = append(toolCallMetrics, msg.Metrics)
+	for i, toolCall := range toolCalls {
+		response := responses[i]
+		pendingMessages = append(pendingMessages, NewToolCallMessage(*toolCall))
+		pendingMessages = append(pendingMessages, NewToolCallResponseMessage(response))
+		toolResponses = append(toolResponses, response)
+		toolCallMetrics = append(toolCallMetrics, response.Metrics)
 	}
 	t.debugConsoleLog(
 		"Tool calls: %v (%d count)",

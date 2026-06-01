@@ -26,6 +26,9 @@ type EnvKeyProvider struct{}
 var _ KeyProvider = EnvKeyProvider{}
 
 func (EnvKeyProvider) APIKey(_ context.Context, vendor base.LLMVendor) (string, error) {
+	if vendor == nil {
+		return "", fmt.Errorf("hippocampus: nil vendor")
+	}
 	var env string
 	switch vendor.String() {
 	case LLMVendorOpenAI.String():

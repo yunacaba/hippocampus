@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 	"time"
 
@@ -210,7 +211,10 @@ func (a *Agent[TI, TO]) ExecuteWithDetails(
 			// Continue execution
 		}
 
-		messagesForRequest := pendingMessages
+		// Clone so the request we record in details cannot be mutated by the
+		// appends to pendingMessages later in this iteration (the two would
+		// otherwise share backing storage).
+		messagesForRequest := slices.Clone(pendingMessages)
 		if len(a.toolbox.Tools()) > 0 {
 			iterationMessage := a.buildIterationMessage(i, maxIterations)
 			a.debugConsoleLog("Iteration: %s", iterationMessage)
