@@ -116,6 +116,13 @@ func applyOptions(params *sdk.MessageNewParams, co base.CallOptions) {
 	if len(co.Tools) > 0 {
 		params.Tools = toolsToAnthropic(co.Tools)
 	}
+	// Anthropic has no dedicated JSON-mode flag; steer it with a system
+	// instruction so JSONMode is honored rather than silently dropped.
+	if co.JSONMode {
+		params.System = append(params.System, sdk.TextBlockParam{
+			Text: "Respond with only a single valid JSON object and no other text.",
+		})
+	}
 }
 
 // responseFromAnthropic converts an Anthropic message into an owned response.
@@ -141,15 +148,9 @@ func responseFromAnthropic(msg *sdk.Message) *base.ModelCallResponse {
 		}
 	}
 
-	var funcCall *base.FunctionCall
-	if len(toolCalls) > 0 {
-		funcCall = &toolCalls[0].FunctionCall
-	}
-
 	return &base.ModelCallResponse{
 		Content:    content.String(),
 		StopReason: string(msg.StopReason),
-		FuncCall:   funcCall,
 		ToolCalls:  toolCalls,
 		GenerationInfo: map[string]any{
 			"InputTokens":  int(msg.Usage.InputTokens),

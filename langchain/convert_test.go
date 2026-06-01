@@ -100,9 +100,6 @@ func TestResponseFromLangchain(t *testing.T) {
 	if got.Content != "hello" || got.StopReason != "stop" {
 		t.Errorf("content/stop mismatch: %#v", got)
 	}
-	if got.FuncCall == nil || got.FuncCall.Name != "f" {
-		t.Errorf("func call mismatch: %#v", got.FuncCall)
-	}
 	if len(got.ToolCalls) != 1 || got.ToolCalls[0].ToolCallID != "1" || got.ToolCalls[0].FunctionCall.Name != "search" {
 		t.Errorf("tool calls mismatch: %#v", got.ToolCalls)
 	}

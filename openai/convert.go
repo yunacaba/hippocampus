@@ -155,15 +155,9 @@ func responseFromOpenAI(completion *oai.ChatCompletion) *base.ModelCallResponse 
 		})
 	}
 
-	var funcCall *base.FunctionCall
-	if len(toolCalls) > 0 {
-		funcCall = &toolCalls[0].FunctionCall
-	}
-
 	return &base.ModelCallResponse{
 		Content:    msg.Content,
 		StopReason: choice.FinishReason,
-		FuncCall:   funcCall,
 		ToolCalls:  toolCalls,
 		GenerationInfo: map[string]any{
 			"InputTokens":  int(completion.Usage.PromptTokens),

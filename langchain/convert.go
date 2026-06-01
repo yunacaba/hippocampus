@@ -116,14 +116,6 @@ func responseFromLangchain(completion *llms.ContentResponse) *base.ModelCallResp
 	}
 	choice := completion.Choices[0]
 
-	var funcCall *base.FunctionCall
-	if choice.FuncCall != nil {
-		funcCall = &base.FunctionCall{
-			Name:      choice.FuncCall.Name,
-			Arguments: choice.FuncCall.Arguments,
-		}
-	}
-
 	toolCalls := make([]base.ModelToolCall, 0, len(choice.ToolCalls))
 	for _, tc := range choice.ToolCalls {
 		var fc base.FunctionCall
@@ -140,7 +132,6 @@ func responseFromLangchain(completion *llms.ContentResponse) *base.ModelCallResp
 		Content:          choice.Content,
 		StopReason:       choice.StopReason,
 		GenerationInfo:   choice.GenerationInfo,
-		FuncCall:         funcCall,
 		ToolCalls:        toolCalls,
 		ReasoningContent: choice.ReasoningContent,
 	}

@@ -133,11 +133,6 @@ type ModelCallResponse struct {
 	// GenerationInfo is arbitrary information the model adds to the response.
 	GenerationInfo map[string]any
 
-	// FuncCall is non-nil when the model asks to invoke a function/tool.
-	// If a model invokes more than one function/tool, this field will only
-	// contain the first one.
-	FuncCall *FunctionCall
-
 	// ToolCalls is a list of tool calls the model asks to invoke.
 	ToolCalls []ModelToolCall
 
