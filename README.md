@@ -95,4 +95,5 @@ GOOGLE_AI_API_KEY=... go test -tags=llm ./langchain/...
 
 ## License
 
-Proprietary. Internal use within yunacaba projects.
+Licensed under the [Apache License 2.0](./LICENSE). See [NOTICE](./NOTICE) for
+attribution.

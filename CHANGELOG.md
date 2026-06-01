@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. This project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-06-01
+
+### Added
+
+- Apache License 2.0 and a `NOTICE` file; the project is now public OSS.
+  Updated the README license section accordingly. No code changes.
+
 ## [0.2.0] - 2026-06-01
 
 Code-review follow-up: correctness fixes, an adapter refactor, and fuller
