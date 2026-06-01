@@ -3,6 +3,47 @@
 All notable changes to this project are documented here. This project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-01
+
+Code-review follow-up: correctness fixes, an adapter refactor, and fuller
+CallOptions coverage. Contains API-visible changes (see Removed), hence a minor
+bump.
+
+### Fixed
+
+- **Tool-call pairing**: results are now paired to their originating call
+  positionally instead of by `ToolCallID`. Providers that omit IDs (Google AI)
+  or reuse them previously collapsed parallel calls, corrupting the conversation
+  history sent on the next turn.
+- **Request aliasing**: each recorded `details.ModelRequests` entry is now a
+  clone, so it can't be mutated (or data-raced) by later appends to the agent's
+  working message slice.
+- **OpenAI streaming token usage**: streamed calls now request `include_usage`,
+  so token counts are reported instead of zero.
+- **Streaming TTFT**: time-to-first-token is recorded on any first delta
+  (content or tool-call), so tool-only streamed turns are measured.
+- **Anthropic JSON mode**: `WithJSONMode` is honored via a system instruction
+  instead of being silently dropped (the API has no JSON-mode flag).
+- **EnvKeyProvider**: a nil vendor now returns an error instead of panicking.
+
+### Added
+
+- `RunModelGenerate` and `MarkFirstToken` helpers for implementing `base.Model`
+  adapters; the three bundled adapters now share this scaffolding.
+- `WithToolChoice` and `WithStopWords` are now honored across all adapters
+  (`ToolChoice`: auto/required/none/named; OpenAI also gained stop-word
+  support).
+
+### Changed
+
+- Tool input JSON Schema is computed once at `NewTool` time, not per call.
+
+### Removed
+
+- `ModelCallResponse.FuncCall` (was never read; use `ToolCalls`).
+- `WithMetadata` / `CallOptions.Metadata` (no meaningful provider-neutral
+  semantics; was silently ignored by every adapter).
+
 ## [0.1.1] - 2026-06-01
 
 ### Changed

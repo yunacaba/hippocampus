@@ -102,6 +102,17 @@ func optionsToLangchain(
 	if len(co.Tools) > 0 {
 		opts = append(opts, llms.WithTools(toolsToLangchain(co.Tools)))
 	}
+	switch co.ToolChoice {
+	case "":
+		// leave unset
+	case "auto", "required", "none", "any":
+		opts = append(opts, llms.WithToolChoice(co.ToolChoice))
+	default: // a specific tool name
+		opts = append(opts, llms.WithToolChoice(llms.ToolChoice{
+			Type:     "function",
+			Function: &llms.FunctionReference{Name: co.ToolChoice},
+		}))
+	}
 	if streamingFunc != nil {
 		opts = append(opts, llms.WithStreamingFunc(streamingFunc))
 	}

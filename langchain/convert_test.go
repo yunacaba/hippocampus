@@ -82,6 +82,27 @@ func TestOptionsToLangchain(t *testing.T) {
 	}
 }
 
+func TestOptionsToLangchain_ToolChoice(t *testing.T) {
+	// Standard mode passes through as a string.
+	mode := &llms.CallOptions{}
+	for _, o := range optionsToLangchain(base.ResolveCallOptions([]base.CallOption{base.WithToolChoice("required")}), nil) {
+		o(mode)
+	}
+	if mode.ToolChoice != "required" {
+		t.Errorf("tool choice mode: want \"required\", got %#v", mode.ToolChoice)
+	}
+
+	// A specific tool name becomes a function reference.
+	named := &llms.CallOptions{}
+	for _, o := range optionsToLangchain(base.ResolveCallOptions([]base.CallOption{base.WithToolChoice("my_tool")}), nil) {
+		o(named)
+	}
+	tc, ok := named.ToolChoice.(llms.ToolChoice)
+	if !ok || tc.Function == nil || tc.Function.Name != "my_tool" {
+		t.Errorf("named tool choice: unexpected %#v", named.ToolChoice)
+	}
+}
+
 func TestResponseFromLangchain(t *testing.T) {
 	completion := &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{

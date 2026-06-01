@@ -66,6 +66,14 @@ it up automatically:
 | Anthropic | `metadata.user_id` |
 | Google AI | not supported by the API; ignored |
 
+## Call options
+
+Per-call options passed to `Execute` (or set by the agent) are translated by
+each adapter to its SDK: `WithTemperature`, `WithMaxTokens`, `WithTopP`,
+`WithStopWords`, `WithJSONMode`, `WithTools`, and `WithToolChoice`
+(`"auto"`/`"required"`/`"none"`/a tool name). Anthropic has no JSON-mode flag,
+so `WithJSONMode` is applied as a system instruction there.
+
 ## Tracing and keys
 
 - **Tracing** is behind the `Tracer`/`Span` interfaces; the default is

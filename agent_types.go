@@ -33,7 +33,6 @@ var (
 	WithJSONMode    = base.WithJSONMode
 	WithTools       = base.WithTools
 	WithToolChoice  = base.WithToolChoice
-	WithMetadata    = base.WithMetadata
 )
 
 type AgentExecutionDetails struct {

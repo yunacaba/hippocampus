@@ -123,6 +123,9 @@ func applyOptions(params *oai.ChatCompletionNewParams, co base.CallOptions) {
 	if co.TopP > 0 {
 		params.TopP = oai.Float(co.TopP)
 	}
+	if len(co.StopWords) > 0 {
+		params.Stop = oai.ChatCompletionNewParamsStopUnion{OfStringArray: co.StopWords}
+	}
 	if co.JSONMode {
 		params.ResponseFormat = oai.ChatCompletionNewParamsResponseFormatUnion{
 			OfJSONObject: &shared.ResponseFormatJSONObjectParam{},
@@ -130,6 +133,18 @@ func applyOptions(params *oai.ChatCompletionNewParams, co base.CallOptions) {
 	}
 	if len(co.Tools) > 0 {
 		params.Tools = toolsToOpenAI(co.Tools)
+	}
+	switch co.ToolChoice {
+	case "":
+		// leave unset (OpenAI defaults to "auto" when tools are present)
+	case "auto", "required", "none":
+		params.ToolChoice = oai.ChatCompletionToolChoiceOptionUnionParam{OfAuto: oai.String(co.ToolChoice)}
+	default: // a specific tool name
+		params.ToolChoice = oai.ChatCompletionToolChoiceOptionUnionParam{
+			OfFunctionToolChoice: &oai.ChatCompletionNamedToolChoiceParam{
+				Function: oai.ChatCompletionNamedToolChoiceFunctionParam{Name: co.ToolChoice},
+			},
+		}
 	}
 }
 

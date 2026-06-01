@@ -116,6 +116,18 @@ func applyOptions(params *sdk.MessageNewParams, co base.CallOptions) {
 	if len(co.Tools) > 0 {
 		params.Tools = toolsToAnthropic(co.Tools)
 	}
+	switch co.ToolChoice {
+	case "":
+		// leave unset (Anthropic defaults to auto when tools are present)
+	case "auto":
+		params.ToolChoice = sdk.ToolChoiceUnionParam{OfAuto: &sdk.ToolChoiceAutoParam{}}
+	case "required", "any":
+		params.ToolChoice = sdk.ToolChoiceUnionParam{OfAny: &sdk.ToolChoiceAnyParam{}}
+	case "none":
+		params.ToolChoice = sdk.ToolChoiceUnionParam{OfNone: &sdk.ToolChoiceNoneParam{}}
+	default: // a specific tool name
+		params.ToolChoice = sdk.ToolChoiceParamOfTool(co.ToolChoice)
+	}
 	// Anthropic has no dedicated JSON-mode flag; steer it with a system
 	// instruction so JSONMode is honored rather than silently dropped.
 	if co.JSONMode {

@@ -25,8 +25,6 @@ type CallOptions struct {
 	ToolChoice string
 	// JSONMode requests that the model emit a JSON object.
 	JSONMode bool
-	// Metadata carries arbitrary provider-specific options.
-	Metadata map[string]any
 }
 
 // CallOption is a functional option applied to a model call. Replaces
@@ -75,21 +73,10 @@ func WithTools(tools []ToolSpec) CallOption {
 	return func(o *CallOptions) { o.Tools = tools }
 }
 
-// WithToolChoice sets the tool-choice policy.
+// WithToolChoice sets the tool-choice policy: "auto", "required", "none", or a
+// specific tool name.
 func WithToolChoice(choice string) CallOption {
 	return func(o *CallOptions) { o.ToolChoice = choice }
-}
-
-// WithMetadata merges arbitrary provider-specific options.
-func WithMetadata(md map[string]any) CallOption {
-	return func(o *CallOptions) {
-		if o.Metadata == nil {
-			o.Metadata = make(map[string]any, len(md))
-		}
-		for k, v := range md {
-			o.Metadata[k] = v
-		}
-	}
 }
 
 // ModelCallRequest is the input to Model.Generate.
