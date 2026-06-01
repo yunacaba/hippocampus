@@ -264,7 +264,8 @@ func (a *Agent[TI, TO]) ExecuteWithDetails(
 
 		// Execute tool calls with separate timeout contexts.
 		toolCallResult := a.toolbox.executeLLMToolCalls(agentCtx, response.ToolCalls)
-		a.debugConsoleLog("Tool calls: %v (%d count)",
+		a.debugConsoleLog(
+			"Tool calls: %v (%d count)",
 			toolCallResult.pendingMessages,
 			len(toolCallResult.toolResponses),
 		)

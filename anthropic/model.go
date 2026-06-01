@@ -128,7 +128,8 @@ func (m *anthropicModel) generateStreaming(
 			ttft := time.Since(metrics.StartTime)
 			metrics.StreamingTimeToFirstToken = ttft
 			metrics.IsStreaming = true
-			span.AddEvent("first_token_received",
+			span.AddEvent(
+				"first_token_received",
 				hippo.Int64Attr("ttft.ms", ttft.Milliseconds()),
 				hippo.IntAttr("first_chunk.bytes", len(delta)),
 			)

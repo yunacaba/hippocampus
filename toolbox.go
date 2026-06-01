@@ -250,7 +250,8 @@ func (t *Toolbox) executeModelToolCalls(
 		pendingMessages = append(pendingMessages, NewToolCallResponseMessage(msg))
 		toolCallMetrics = append(toolCallMetrics, msg.Metrics)
 	}
-	t.debugConsoleLog("Tool calls: %v (%d count)",
+	t.debugConsoleLog(
+		"Tool calls: %v (%d count)",
 		pendingMessages,
 		len(toolResponses),
 	)
@@ -337,7 +338,8 @@ func (t *Toolbox) executeToolCallStringResponse(
 	start := time.Now()
 
 	// Execute the tool call with context
-	toolResponse, err := tool.Invoke(ctx,
+	toolResponse, err := tool.Invoke(
+		ctx,
 		toolCall.FunctionCall.Arguments,
 		toolCall.ToolCallID,
 	)

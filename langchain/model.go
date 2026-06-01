@@ -128,7 +128,8 @@ func (m *langchainModel) logPreflight(
 		hippo.StringAttr("model.name", m.name),
 		hippo.StringAttr("model.llm_type", m.llmType.String()),
 	)
-	span.AddEvent("request_start",
+	span.AddEvent(
+		"request_start",
 		hippo.StringAttr("timestamp", metrics.StartTime.Format(time.RFC3339Nano)),
 	)
 }
@@ -142,7 +143,8 @@ func (m *langchainModel) wrapStreamingFunc(
 		if !metrics.IsStreaming {
 			ttft := time.Since(metrics.StartTime)
 			metrics.StreamingTimeToFirstToken = ttft
-			span.AddEvent("first_token_received",
+			span.AddEvent(
+				"first_token_received",
 				hippo.Int64Attr("ttft.ms", ttft.Milliseconds()),
 				hippo.IntAttr("first_chunk.bytes", len(chunk)),
 			)
