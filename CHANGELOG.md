@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. This project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-06-01
+
+### Changed
+
+- Reformatted to satisfy gofumpt v0.10.0 and pinned the CI gofumpt version so
+  `@latest` drift cannot fail the build. No API or behavior changes.
+
 ## [0.1.0] - 2026-06-01
 
 Initial release. Extracted from Carmen's in-tree agent framework into a
