@@ -1,6 +1,6 @@
 module github.com/yunacaba/hippocampus
 
-go 1.25
+go 1.26
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.46.0
@@ -27,6 +27,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/generative-ai-go v0.15.1 // indirect
@@ -35,6 +36,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
+	github.com/kaptinlin/jsonrepair v0.2.16 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect

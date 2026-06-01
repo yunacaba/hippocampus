@@ -41,7 +41,7 @@ A complete, runnable version lives in [`sample/`](./sample); run it with
 |---|---|
 | `hippocampus` (root) | `Agent[TI, TO]`, `Tool[I, O]`, builder, execution loop, model constants. |
 | [`base`](./base) | Provider-neutral message, tool-call, and call-option types. |
-| [`jsonx`](./jsonx) | Reflection-driven JSON serialization and JSON-schema generation (with `proto.Message` support). |
+| [`jsonx`](./jsonx) | Reflection-driven JSON serialization, JSON-schema generation (with `proto.Message` support), and LLM-tolerant parsing (`DeserializeLLM`: strips fences/prose, repairs malformed/truncated JSON). |
 | [`openai`](./openai) | Direct-SDK OpenAI adapter (sets the `user` field). |
 | [`anthropic`](./anthropic) | Direct-SDK Anthropic adapter (sets `metadata.user_id`). |
 | [`langchain`](./langchain) | langchaingo-backed adapter for Google AI. |
