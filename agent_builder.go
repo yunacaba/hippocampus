@@ -13,6 +13,7 @@ type agentArgs[I any, O any] struct {
 	llmType           LLMType
 	tools             []AnyTool
 	debugToolCalls    bool
+	structuredOutput  bool
 	maxIterations     int
 	toolCallingPolicy ToolCallingPolicy
 }
@@ -102,6 +103,16 @@ func (b *OptionsAgentBuilder[I, O]) SetDebugToolCalls(debugToolCalls bool) *Opti
 	return b
 }
 
+// SetStructuredOutput enables provider-native structured output: the JSON Schema
+// derived from the output type O is sent to the model (OpenAI response_format
+// json_schema; Anthropic a forced output tool) so it returns schema-conformant
+// JSON. Adapters that can't enforce it fall back to prompt guidance + cleaning.
+// Default off.
+func (b *OptionsAgentBuilder[I, O]) SetStructuredOutput(enabled bool) *OptionsAgentBuilder[I, O] {
+	b.args.structuredOutput = enabled
+	return b
+}
+
 func (b *OptionsAgentBuilder[I, O]) SetMaxIterations(maxIterations int) *OptionsAgentBuilder[I, O] {
 	b.args.maxIterations = maxIterations
 	return b
@@ -160,6 +171,7 @@ func (b *OptionsAgentBuilder[I, O]) Build() (*Agent[I, O], error) {
 	}
 
 	agentInstance.debugToolCalls = b.args.debugToolCalls
+	agentInstance.structuredOutput = b.args.structuredOutput
 	agentInstance.maxIterations = b.args.maxIterations
 	agentInstance.toolCallingPolicy = b.args.toolCallingPolicy
 	return agentInstance, nil

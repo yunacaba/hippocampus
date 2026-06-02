@@ -53,8 +53,9 @@ type Agent[TI any, TO any] struct {
 	tracer            Tracer
 	toolCallingPolicy ToolCallingPolicy
 
-	debugToolCalls bool
-	maxIterations  int
+	debugToolCalls   bool
+	structuredOutput bool
+	maxIterations    int
 }
 
 // newAgent creates an agent using the PromptTemplate interface.
@@ -319,6 +320,16 @@ func (a *Agent[TI, TO]) optionsForPrompt(formattedPrompt *FormattedPrompt) []Mod
 			tools = append(tools, tool.toToolSpec())
 		}
 		options = append(options, WithTools(tools))
+	}
+
+	// When structured output is enabled, derive the JSON Schema from the output
+	// type so adapters can enforce it natively (OpenAI response_format,
+	// Anthropic forced tool). Best-effort: on a schema error we fall back to the
+	// schema already injected into the prompt.
+	if a.structuredOutput {
+		if schema, err := jsonx.SchemaMap(a.promptTemplate.GetSampleResponseObject()); err == nil {
+			options = append(options, WithResponseSchema("response", schema))
+		}
 	}
 	return options
 }

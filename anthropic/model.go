@@ -60,6 +60,22 @@ func (m *anthropicModel) Generate(
 			}
 
 			resp := responseFromAnthropic(message)
+
+			// Structured output via forced tool: lift the synthetic tool's input
+			// (which is the schema-conformant JSON) into Content, and drop it from
+			// ToolCalls so the agent treats it as the final answer rather than a
+			// tool to execute.
+			if co.ResponseSchema != nil && len(co.Tools) == 0 && message != nil {
+				name := structuredOutputToolName(co.ResponseSchema)
+				for _, block := range message.Content {
+					if block.Type == "tool_use" && block.Name == name {
+						resp.Content = string(block.Input)
+						resp.ToolCalls = nil
+						break
+					}
+				}
+			}
+
 			if message != nil {
 				metrics.InputTokens = int(message.Usage.InputTokens)
 				metrics.OutputTokens = int(message.Usage.OutputTokens)

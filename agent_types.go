@@ -17,6 +17,7 @@ type (
 	ModelToolCall    = base.ModelToolCall
 	FunctionCall     = base.FunctionCall
 	ToolSpec         = base.ToolSpec
+	ResponseSchema   = base.ResponseSchema
 
 	ModelCallResponse     = base.ModelCallResponse
 	ModelCallMetrics      = base.ModelCallMetrics
@@ -26,13 +27,15 @@ type (
 
 // Call-option constructors re-exported from base.
 var (
-	WithTemperature = base.WithTemperature
-	WithMaxTokens   = base.WithMaxTokens
-	WithTopP        = base.WithTopP
-	WithStopWords   = base.WithStopWords
-	WithJSONMode    = base.WithJSONMode
-	WithTools       = base.WithTools
-	WithToolChoice  = base.WithToolChoice
+	WithTemperature          = base.WithTemperature
+	WithMaxTokens            = base.WithMaxTokens
+	WithTopP                 = base.WithTopP
+	WithStopWords            = base.WithStopWords
+	WithJSONMode             = base.WithJSONMode
+	WithTools                = base.WithTools
+	WithToolChoice           = base.WithToolChoice
+	WithResponseSchema       = base.WithResponseSchema
+	WithStrictResponseSchema = base.WithStrictResponseSchema
 )
 
 type AgentExecutionDetails struct {

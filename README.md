@@ -74,6 +74,15 @@ each adapter to its SDK: `WithTemperature`, `WithMaxTokens`, `WithTopP`,
 (`"auto"`/`"required"`/`"none"`/a tool name). Anthropic has no JSON-mode flag,
 so `WithJSONMode` is applied as a system instruction there.
 
+### Structured outputs
+
+Call `builder.SetStructuredOutput(true)` to have the agent derive a JSON Schema
+from the output type `O` and ask the model to conform to it: OpenAI uses
+`response_format: json_schema`, Anthropic uses a forced output tool (when the
+call has no other tools). Google AI can't enforce a schema through langchaingo,
+so it falls back to prompt guidance plus the tolerant `jsonx` parser. You can
+also set a schema directly per call with `WithResponseSchema`.
+
 ## Tracing and keys
 
 - **Tracing** is behind the `Tracer`/`Span` interfaces; the default is

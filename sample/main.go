@@ -95,6 +95,7 @@ func main() {
 			&CatalogResult{},
 		)).
 		SetMaxIterations(4).
+		SetStructuredOutput(true). // ask OpenAI to return schema-conformant JSON
 		Build()
 	if err != nil {
 		log.Fatalf("build agent: %v", err)

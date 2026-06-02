@@ -52,3 +52,32 @@ func TestApplyOptions_JSONMode(t *testing.T) {
 		t.Errorf("json mode not mapped: %s", s)
 	}
 }
+
+func TestApplyOptions_ResponseSchema(t *testing.T) {
+	schema := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"answer": map[string]any{"type": "string"}},
+	}
+	s := marshalParams(t, base.WithResponseSchema("response", schema))
+	if !strings.Contains(s, `"type":"json_schema"`) {
+		t.Errorf("response_format not json_schema: %s", s)
+	}
+	if !strings.Contains(s, `"name":"response"`) {
+		t.Errorf("schema name missing: %s", s)
+	}
+	if !strings.Contains(s, `"answer"`) {
+		t.Errorf("schema body missing: %s", s)
+	}
+}
+
+func TestApplyOptions_ResponseSchemaBeatsJSONMode(t *testing.T) {
+	schema := map[string]any{"type": "object"}
+	// Both set (the agent sets both): the schema must win.
+	s := marshalParams(t, base.WithJSONMode(), base.WithResponseSchema("response", schema))
+	if !strings.Contains(s, `"type":"json_schema"`) {
+		t.Errorf("expected json_schema to take precedence: %s", s)
+	}
+	if strings.Contains(s, `"type":"json_object"`) {
+		t.Errorf("json_object should not be present: %s", s)
+	}
+}
