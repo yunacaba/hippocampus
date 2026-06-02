@@ -324,10 +324,12 @@ func (a *Agent[TI, TO]) optionsForPrompt(formattedPrompt *FormattedPrompt) []Mod
 
 	// When structured output is enabled, derive the JSON Schema from the output
 	// type so adapters can enforce it natively (OpenAI response_format,
-	// Anthropic forced tool). Best-effort: on a schema error we fall back to the
-	// schema already injected into the prompt.
+	// Anthropic forced tool). Provider structured output requires an
+	// object-rooted schema, so for non-object output types (slices, scalars) we
+	// skip enforcement and fall back to the schema already injected into the
+	// prompt plus the tolerant jsonx parser. Schema errors fall back the same way.
 	if a.structuredOutput {
-		if schema, err := jsonx.SchemaMap(a.promptTemplate.GetSampleResponseObject()); err == nil {
+		if schema, err := jsonx.SchemaMap(a.promptTemplate.GetSampleResponseObject()); err == nil && schema["type"] == "object" {
 			options = append(options, WithResponseSchema("response", schema))
 		}
 	}

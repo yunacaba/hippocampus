@@ -108,6 +108,10 @@ func (b *OptionsAgentBuilder[I, O]) SetDebugToolCalls(debugToolCalls bool) *Opti
 // json_schema; Anthropic a forced output tool) so it returns schema-conformant
 // JSON. Adapters that can't enforce it fall back to prompt guidance + cleaning.
 // Default off.
+//
+// Only object-rooted output types are enforced (providers require an object
+// schema root); for slice or scalar O the schema is omitted and parsing relies
+// on prompt guidance plus the tolerant jsonx parser.
 func (b *OptionsAgentBuilder[I, O]) SetStructuredOutput(enabled bool) *OptionsAgentBuilder[I, O] {
 	b.args.structuredOutput = enabled
 	return b
