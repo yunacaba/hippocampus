@@ -4,10 +4,10 @@ go 1.26
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.46.0
+	github.com/google/jsonschema-go v0.4.3
 	github.com/kaptinlin/jsonrepair v0.2.16
 	github.com/openai/openai-go/v2 v2.7.1
 	github.com/stretchr/testify v1.11.1
-	github.com/swaggest/jsonschema-go v0.3.78
 	github.com/tmc/langchaingo v0.1.14-pre.3
 	google.golang.org/protobuf v1.36.10
 )
@@ -40,7 +40,6 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
-	github.com/swaggest/refl v1.4.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

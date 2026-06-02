@@ -19,6 +19,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Minimum Go version is now **1.26** (transitively required by
   `github.com/kaptinlin/jsonrepair`).
+- `jsonx` schema generation (`SchemaBytes`/`SchemaString`/`SchemaMap`) now uses
+  `github.com/google/jsonschema-go` instead of `swaggest/jsonschema-go` — the
+  package the Go MCP SDK standardizes on, which also provides validation for
+  later use. Public signatures are unchanged.
+
+  Behavior changes for consumers:
+  - **Required-ness** is derived from `omitempty`/`omitzero` (matching
+    `encoding/json`) rather than a `required:"true"` tag.
+  - **swaggest-family struct tags are no longer honored** — `required:"true"`,
+    `minimum`/`maximum` (`min`/`max`), and similar are ignored. Only `json`,
+    `omitempty`/`omitzero`, and `jsonschema:"..."` (descriptions) are read.
+    Structs relying on those tags should migrate (`omitempty` for optional
+    fields; range constraints have no struct-tag equivalent).
+  - Generated object schemas now set `additionalProperties: false` and inline
+    nested structs rather than emitting `$defs`/`$ref`. Slices render as
+    nullable (`"type": ["null", "array"]`).
 
 ### Removed
 
