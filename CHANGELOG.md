@@ -7,6 +7,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Structured outputs.** New `WithResponseSchema` / `WithStrictResponseSchema`
+  call options and a `base.CallOptions.ResponseSchema`. The agent builder's
+  `SetStructuredOutput(true)` derives the JSON Schema from the output type `O`
+  and sends it to the model so it returns schema-conformant JSON:
+  - OpenAI → `response_format: json_schema` (precedes plain JSON mode).
+  - Anthropic → a forced synthetic output tool (only when the call has no other
+    tools); the tool's input is lifted back into the response content.
+  - Google AI (langchaingo) → no schema enforcement; relies on prompt guidance
+    and the `jsonx` cleaner (see issue #2).
+
 - `jsonx` LLM-tolerant parsing, ported from Story Builder's `aiutil`:
   `DeserializeLLM[T]` / `DeserializeAnyLLM` (clean → unmarshal → `jsonrepair` →
   truncation-close fallback, reporting whether repair was needed), plus

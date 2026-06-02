@@ -65,3 +65,32 @@ func TestApplyOptions_JSONModeAddsSystemInstruction(t *testing.T) {
 		t.Errorf("json mode system instruction not added: %s", s)
 	}
 }
+
+func TestApplyOptions_ResponseSchemaForcesTool(t *testing.T) {
+	schema := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"answer": map[string]any{"type": "string"}},
+	}
+	s := marshalParams(t, base.WithResponseSchema("respond", schema))
+	// A single tool is offered and forced via tool_choice.
+	if !strings.Contains(s, `"tool_choice":{`) || !strings.Contains(s, `"name":"respond"`) {
+		t.Errorf("expected forced tool_choice for the output tool: %s", s)
+	}
+	if !strings.Contains(s, `"input_schema"`) || !strings.Contains(s, `"answer"`) {
+		t.Errorf("expected the output tool to carry the schema: %s", s)
+	}
+}
+
+func TestApplyOptions_ResponseSchemaSkippedWithRealTools(t *testing.T) {
+	schema := map[string]any{"type": "object"}
+	// With real tools present, forcing the output tool would block them, so the
+	// schema enforcement is skipped (tool_choice not forced to "respond").
+	s := marshalParams(
+		t,
+		base.WithTools([]base.ToolSpec{{Name: "search", Description: "d", Schema: map[string]any{"type": "object"}}}),
+		base.WithResponseSchema("respond", schema),
+	)
+	if strings.Contains(s, `"name":"respond"`) {
+		t.Errorf("output tool should not be forced when real tools are present: %s", s)
+	}
+}

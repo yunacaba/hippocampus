@@ -157,6 +157,120 @@ func TestAgent_RecordedRequestsNotMutated(t *testing.T) {
 	}
 }
 
+// TestAgent_StructuredOutputSetsSchema verifies that SetStructuredOutput(true)
+// derives a JSON Schema from the output type and attaches it to the model
+// request's options (so adapters can enforce it).
+func TestAgent_StructuredOutputSetsSchema(t *testing.T) {
+	type TestRequest struct {
+		Message string `json:"message"`
+	}
+	type TestResponse struct {
+		Result string `json:"result"`
+	}
+
+	mockModel := agenttest.NewMockModel(
+		"sa",
+		hippo.AnthropicClaudeHaiku45,
+		[]*base.ModelCallResponse{{Content: `{"result":"ok"}`}},
+	)
+	mockProvider := agenttest.NewMockModelProvider()
+	mockProvider.AddModel("sa", mockModel)
+
+	agent, err := hippo.NewAgentWithTemplateText(
+		"Answer.",
+		&TestRequest{},
+		&TestResponse{},
+	).
+		SetName("sa").
+		SetModel(mockProvider, hippo.AnthropicClaudeHaiku45).
+		SetStructuredOutput(true).
+		Build()
+	require.NoError(t, err)
+
+	_, err = agent.Execute(context.Background(), &TestRequest{Message: "hi"}, nil)
+	require.NoError(t, err)
+
+	invs := mockModel.CapturedInvocations()
+	require.Len(t, invs, 1)
+	co := base.ResolveCallOptions(invs[0].Options)
+	require.NotNil(t, co.ResponseSchema, "structured output should set a ResponseSchema")
+	assert.Equal(t, "response", co.ResponseSchema.Name)
+	props, ok := co.ResponseSchema.Schema["properties"].(map[string]any)
+	require.True(t, ok, "schema should have properties")
+	_, ok = props["result"]
+	assert.True(t, ok, "schema should describe the result field")
+}
+
+// TestAgent_NoStructuredOutputByDefault verifies the option is off by default.
+func TestAgent_NoStructuredOutputByDefault(t *testing.T) {
+	type TestRequest struct {
+		Message string `json:"message"`
+	}
+	type TestResponse struct {
+		Result string `json:"result"`
+	}
+
+	mockModel := agenttest.NewMockModel(
+		"sa",
+		hippo.AnthropicClaudeHaiku45,
+		[]*base.ModelCallResponse{{Content: `{"result":"ok"}`}},
+	)
+	mockProvider := agenttest.NewMockModelProvider()
+	mockProvider.AddModel("sa", mockModel)
+
+	agent, err := hippo.NewAgentWithTemplateText("Answer.", &TestRequest{}, &TestResponse{}).
+		SetName("sa").
+		SetModel(mockProvider, hippo.AnthropicClaudeHaiku45).
+		Build()
+	require.NoError(t, err)
+
+	_, err = agent.Execute(context.Background(), &TestRequest{Message: "hi"}, nil)
+	require.NoError(t, err)
+
+	co := base.ResolveCallOptions(mockModel.CapturedInvocations()[0].Options)
+	assert.Nil(t, co.ResponseSchema, "structured output must be off by default")
+}
+
+// TestAgent_StructuredOutputSkippedForNonObject verifies that structured output
+// is not attached when the output type isn't object-rooted (a slice here),
+// since OpenAI response_format / Anthropic input_schema require an object root.
+// The agent falls back to prompt guidance + the tolerant parser.
+func TestAgent_StructuredOutputSkippedForNonObject(t *testing.T) {
+	type TestRequest struct {
+		Message string `json:"message"`
+	}
+	type item struct {
+		V string `json:"v"`
+	}
+
+	mockModel := agenttest.NewMockModel(
+		"sa",
+		hippo.AnthropicClaudeHaiku45,
+		[]*base.ModelCallResponse{{Content: `[{"v":"a"},{"v":"b"}]`}},
+	)
+	mockProvider := agenttest.NewMockModelProvider()
+	mockProvider.AddModel("sa", mockModel)
+
+	// Output type is a slice (pointer-to-slice, per the deserialize convention).
+	agent, err := hippo.NewAgentWithTemplateText(
+		"List items.",
+		&TestRequest{},
+		&[]item{},
+	).
+		SetName("sa").
+		SetModel(mockProvider, hippo.AnthropicClaudeHaiku45).
+		SetStructuredOutput(true).
+		Build()
+	require.NoError(t, err)
+
+	out, err := agent.Execute(context.Background(), &TestRequest{Message: "hi"}, nil)
+	require.NoError(t, err)
+	require.Len(t, *out, 2) // array output still parses via the tolerant cleaner
+
+	co := base.ResolveCallOptions(mockModel.CapturedInvocations()[0].Options)
+	assert.Nil(t, co.ResponseSchema, "structured output should be skipped for a non-object output type")
+}
+
 func TestAgent_ObserverCallbacks(t *testing.T) {
 	type TestRequest struct {
 		Message string `json:"message"`

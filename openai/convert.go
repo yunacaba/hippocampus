@@ -126,7 +126,20 @@ func applyOptions(params *oai.ChatCompletionNewParams, co base.CallOptions) {
 	if len(co.StopWords) > 0 {
 		params.Stop = oai.ChatCompletionNewParamsStopUnion{OfStringArray: co.StopWords}
 	}
-	if co.JSONMode {
+	// A response schema is stronger than plain JSON mode, so it takes precedence.
+	switch {
+	case co.ResponseSchema != nil:
+		js := shared.ResponseFormatJSONSchemaJSONSchemaParam{
+			Name:   co.ResponseSchema.Name,
+			Schema: co.ResponseSchema.Schema,
+		}
+		if co.ResponseSchema.Strict {
+			js.Strict = oai.Bool(true)
+		}
+		params.ResponseFormat = oai.ChatCompletionNewParamsResponseFormatUnion{
+			OfJSONSchema: &shared.ResponseFormatJSONSchemaParam{JSONSchema: js},
+		}
+	case co.JSONMode:
 		params.ResponseFormat = oai.ChatCompletionNewParamsResponseFormatUnion{
 			OfJSONObject: &shared.ResponseFormatJSONObjectParam{},
 		}

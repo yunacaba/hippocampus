@@ -10,6 +10,21 @@ type ToolSpec struct {
 	Schema      map[string]any
 }
 
+// ResponseSchema requests that the model's output conform to a JSON Schema.
+// Adapters map it to their native structured-output mechanism (OpenAI
+// response_format json_schema; Anthropic a forced output tool). Adapters that
+// cannot enforce it ignore it and rely on prompt guidance.
+type ResponseSchema struct {
+	// Name is the provider-visible schema name (e.g. "response"). OpenAI
+	// requires it to match [a-zA-Z0-9_-] and be at most 64 characters.
+	Name string
+	// Schema is the JSON Schema object describing the desired output.
+	Schema map[string]any
+	// Strict requests strict schema adherence where supported (OpenAI). The
+	// schema must satisfy the provider's strict-mode subset.
+	Strict bool
+}
+
 // CallOptions is the resolved set of options for a single model call. Each
 // Model adapter inspects it and maps the relevant fields onto its provider
 // SDK's request. Provider-neutral; replaces langchaingo's llms.CallOptions.
@@ -25,6 +40,8 @@ type CallOptions struct {
 	ToolChoice string
 	// JSONMode requests that the model emit a JSON object.
 	JSONMode bool
+	// ResponseSchema, when set, requests schema-conformant output.
+	ResponseSchema *ResponseSchema
 }
 
 // CallOption is a functional option applied to a model call. Replaces
@@ -77,6 +94,23 @@ func WithTools(tools []ToolSpec) CallOption {
 // specific tool name.
 func WithToolChoice(choice string) CallOption {
 	return func(o *CallOptions) { o.ToolChoice = choice }
+}
+
+// WithResponseSchema requests that the model's output conform to the given JSON
+// Schema, named for the provider. Non-strict; see WithStrictResponseSchema.
+func WithResponseSchema(name string, schema map[string]any) CallOption {
+	return func(o *CallOptions) {
+		o.ResponseSchema = &ResponseSchema{Name: name, Schema: schema}
+	}
+}
+
+// WithStrictResponseSchema is like WithResponseSchema but requests strict
+// adherence where the provider supports it (currently OpenAI). The schema must
+// satisfy the provider's strict-mode subset.
+func WithStrictResponseSchema(name string, schema map[string]any) CallOption {
+	return func(o *CallOptions) {
+		o.ResponseSchema = &ResponseSchema{Name: name, Schema: schema, Strict: true}
+	}
 }
 
 // ModelCallRequest is the input to Model.Generate.

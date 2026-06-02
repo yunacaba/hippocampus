@@ -97,6 +97,15 @@ func toolsToAnthropic(tools []base.ToolSpec) []sdk.ToolUnionParam {
 	return out
 }
 
+// structuredOutputToolName returns the name of the synthetic tool used to force
+// schema-conformant output for the given response schema.
+func structuredOutputToolName(rs *base.ResponseSchema) string {
+	if rs != nil && rs.Name != "" {
+		return rs.Name
+	}
+	return "respond"
+}
+
 // applyOptions maps resolved owned call options onto the Anthropic request.
 func applyOptions(params *sdk.MessageNewParams, co base.CallOptions) {
 	if co.MaxTokens > 0 {
@@ -128,6 +137,22 @@ func applyOptions(params *sdk.MessageNewParams, co base.CallOptions) {
 	default: // a specific tool name
 		params.ToolChoice = sdk.ToolChoiceParamOfTool(co.ToolChoice)
 	}
+	// Structured output: Anthropic has no response_format, so force a single
+	// synthetic tool whose input schema is the desired output. Only when the
+	// caller hasn't supplied real tools — forcing the output tool would
+	// otherwise prevent the model from calling them. The model.Generate path
+	// lifts the tool's input back out into the response Content.
+	if co.ResponseSchema != nil && len(co.Tools) == 0 {
+		name := structuredOutputToolName(co.ResponseSchema)
+		params.Tools = toolsToAnthropic([]base.ToolSpec{{
+			Name:        name,
+			Description: "Respond by calling this tool with the structured result.",
+			Schema:      co.ResponseSchema.Schema,
+		}})
+		params.ToolChoice = sdk.ToolChoiceParamOfTool(name)
+		return
+	}
+
 	// Anthropic has no dedicated JSON-mode flag; steer it with a system
 	// instruction so JSONMode is honored rather than silently dropped.
 	if co.JSONMode {
