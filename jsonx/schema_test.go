@@ -48,6 +48,58 @@ func TestSchemaMap_Shape(t *testing.T) {
 	}
 }
 
+type nestedArg struct {
+	Inner   schemaArg `json:"inner"`
+	Tags    []string  `json:"tags"`
+	OptTags []string  `json:"opt_tags,omitempty"`
+}
+
+// TestSchemaMap_NestedAndSlice locks the intentional shape decisions of the
+// google/jsonschema-go switch: nested structs are inlined with their own
+// required list, and slices render as a nullable array type.
+func TestSchemaMap_NestedAndSlice(t *testing.T) {
+	m, err := SchemaMap(&nestedArg{})
+	if err != nil {
+		t.Fatalf("SchemaMap: %v", err)
+	}
+	props, ok := m["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("properties missing: %T", m["properties"])
+	}
+
+	// Nested struct is inlined as an object with its own required list.
+	inner, ok := props["inner"].(map[string]any)
+	if !ok {
+		t.Fatalf("inner not an object: %T", props["inner"])
+	}
+	if inner["type"] != "object" {
+		t.Errorf("inner type = %v, want object", inner["type"])
+	}
+	innerRequired := toStringSet(inner["required"])
+	if !innerRequired["genre"] || !innerRequired["required_field"] {
+		t.Errorf("nested required missing expected fields: %v", inner["required"])
+	}
+
+	// Slice renders as a nullable array.
+	tags, ok := props["tags"].(map[string]any)
+	if !ok {
+		t.Fatalf("tags not an object: %T", props["tags"])
+	}
+	typeSet := toStringSet(tags["type"])
+	if !typeSet["array"] || !typeSet["null"] {
+		t.Errorf(`tags type = %v, want ["null","array"]`, tags["type"])
+	}
+
+	// omitempty slice is not required; required slice is.
+	required := toStringSet(m["required"])
+	if !required["tags"] {
+		t.Errorf("tags should be required: %v", m["required"])
+	}
+	if required["opt_tags"] {
+		t.Errorf("opt_tags (omitempty) should not be required: %v", m["required"])
+	}
+}
+
 func TestSchemaMap_ValueAndPointerAgree(t *testing.T) {
 	byVal, err := SchemaString(schemaArg{})
 	if err != nil {
