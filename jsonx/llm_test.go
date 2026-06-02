@@ -2,6 +2,7 @@ package jsonx
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -26,7 +27,7 @@ func TestCleanMarkdownBlock(t *testing.T) {
 	}
 }
 
-func TestExtractJSONObject(t *testing.T) {
+func TestExtractJSONValue(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
@@ -34,15 +35,34 @@ func TestExtractJSONObject(t *testing.T) {
 	}{
 		{"surrounding prose", `Sure! {"a":1} hope that helps`, `{"a":1}`},
 		{"brace in string", `{"a":"}{"}`, `{"a":"}{"}`},
-		{"nested", `prefix {"a":{"b":2}} suffix`, `{"a":{"b":2}}`},
-		{"no object", `no json here`, `no json here`},
+		{"nested object", `prefix {"a":{"b":2}} suffix`, `{"a":{"b":2}}`},
+		{"top-level array of objects", `[{"a":1},{"b":2}]`, `[{"a":1},{"b":2}]`},
+		{"array with prose", `Results: [1,2,3] done`, `[1,2,3]`},
+		{"object before array", `{"a":[1,2]}`, `{"a":[1,2]}`},
+		{"bracket in array string", `["a]b","c"]`, `["a]b","c"]`},
+		{"no json", `no json here`, `no json here`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ExtractJSONObject(tt.in); got != tt.want {
-				t.Errorf("ExtractJSONObject(%q) = %q, want %q", tt.in, got, tt.want)
+			if got := ExtractJSONValue(tt.in); got != tt.want {
+				t.Errorf("ExtractJSONValue(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDeserializeLLM_TopLevelArray(t *testing.T) {
+	// An agent whose output type is a slice and whose model returns a bare,
+	// fenced array must round-trip — the object-only extractor used to mangle this.
+	got, repaired, err := DeserializeLLM("```json\n"+`[{"name":"a","genres":["x"]},{"name":"b","genres":[]}]`+"\n```", &[]sample{})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if repaired {
+		t.Error("clean array should not need repair")
+	}
+	if len(*got) != 2 || (*got)[0].Name != "a" || (*got)[1].Name != "b" {
+		t.Errorf("got %#v", got)
 	}
 }
 
@@ -98,7 +118,7 @@ func TestDeserializeLLM_UnrecoverableErrorHasContext(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	if !contains(err.Error(), "failed to parse JSON") {
+	if !strings.Contains(err.Error(), "failed to parse JSON") {
 		t.Errorf("error missing prefix: %v", err)
 	}
 }
@@ -122,17 +142,4 @@ func TestTruncate(t *testing.T) {
 	if got := Truncate("hi", 8); got != "hi" {
 		t.Errorf("got %q", got)
 	}
-}
-
-func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || indexOf(s, sub) >= 0)
-}
-
-func indexOf(s, sub string) int {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
 }

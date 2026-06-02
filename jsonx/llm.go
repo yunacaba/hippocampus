@@ -15,10 +15,11 @@ import (
 // DeserializeAnyLLM clean, then unmarshal, then attempt repair on failure.
 
 // CleanLLMJSON is the full cleaning pipeline for an LLM response: it strips any
-// markdown code fences and then extracts the first complete JSON object from
-// surrounding prose. It does not repair malformed JSON — see DeserializeLLM.
+// markdown code fences and then extracts the first complete JSON value (object
+// or array) from surrounding prose. It does not repair malformed JSON — see
+// DeserializeLLM.
 func CleanLLMJSON(response string) string {
-	return ExtractJSONObject(CleanMarkdownBlock(response))
+	return ExtractJSONValue(CleanMarkdownBlock(response))
 }
 
 // CleanMarkdownBlock removes markdown code-block wrappers (```json ... ```) from
@@ -59,15 +60,31 @@ func CleanMarkdownBlock(response string) string {
 	return strings.TrimSpace(cleaned[contentStart:])
 }
 
-// ExtractJSONObject finds and extracts the first complete JSON object from text,
-// handling explanatory prose before or after it. Brace matching tracks string
-// context so braces inside string values are ignored.
-func ExtractJSONObject(response string) string {
+// ExtractJSONValue finds and extracts the first complete JSON value — an object
+// (`{...}`) or an array (`[...]`) — from text, handling explanatory prose before
+// or after it. Bracket matching tracks string context so brackets inside string
+// values are ignored.
+//
+// The value is anchored to whichever of `{` or `[` appears first, so a top-level
+// array of objects is returned whole rather than just its first element. If the
+// text contains a stray bracket in prose before the real JSON, that bracket
+// wins; this is the same ambiguity the object-only form had and is rare for LLM
+// output, which is typically a single object or array (optionally fenced).
+func ExtractJSONValue(response string) string {
 	cleaned := strings.TrimSpace(response)
 
-	startIdx := strings.Index(cleaned, "{")
-	if startIdx == -1 {
+	objIdx := strings.IndexByte(cleaned, '{')
+	arrIdx := strings.IndexByte(cleaned, '[')
+
+	var startIdx int
+	var open, closeb byte
+	switch {
+	case objIdx == -1 && arrIdx == -1:
 		return cleaned
+	case arrIdx == -1 || (objIdx != -1 && objIdx < arrIdx):
+		startIdx, open, closeb = objIdx, '{', '}'
+	default:
+		startIdx, open, closeb = arrIdx, '[', ']'
 	}
 
 	depth := 0
@@ -82,9 +99,9 @@ func ExtractJSONObject(response string) string {
 			inString = !inString
 		} else if !inString {
 			switch c {
-			case '{':
+			case open:
 				depth++
-			case '}':
+			case closeb:
 				depth--
 				if depth == 0 {
 					endIdx = i

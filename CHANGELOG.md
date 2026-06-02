@@ -10,7 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `jsonx` LLM-tolerant parsing, ported from Story Builder's `aiutil`:
   `DeserializeLLM[T]` / `DeserializeAnyLLM` (clean → unmarshal → `jsonrepair` →
   truncation-close fallback, reporting whether repair was needed), plus
-  `CleanLLMJSON`, `CleanMarkdownBlock`, `ExtractJSONObject`,
+  `CleanLLMJSON`, `CleanMarkdownBlock`, `ExtractJSONValue` (object or array),
   `SalvageArrayElements`, and `Truncate`. The agent now parses model output
   through this path, tolerating markdown fences, surrounding prose, and
   truncation.
