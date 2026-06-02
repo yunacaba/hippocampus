@@ -20,10 +20,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Minimum Go version is now **1.26** (transitively required by
   `github.com/kaptinlin/jsonrepair`).
 
-### Deprecated
+### Removed
 
-- `DeserializeFromPartialString` / `DeserializeAnyFromPartialString` in favor of
-  the `*LLM` functions, which are strictly more capable.
+- `DeserializeFromPartialString` / `DeserializeAnyFromPartialString` and the
+  `github.com/blaze2305/partial-json-parser` dependency. Superseded by the
+  strictly-more-capable `DeserializeLLM` / `DeserializeAnyLLM`.
 
 ## [0.2.1] - 2026-06-01
 

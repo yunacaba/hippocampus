@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.46.0
-	github.com/blaze2305/partial-json-parser v0.1.1
+	github.com/kaptinlin/jsonrepair v0.2.16
 	github.com/openai/openai-go/v2 v2.7.1
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggest/jsonschema-go v0.3.78
@@ -36,7 +36,6 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
-	github.com/kaptinlin/jsonrepair v0.2.16 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
