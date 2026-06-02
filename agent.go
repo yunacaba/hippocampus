@@ -328,14 +328,12 @@ func (a *Agent[TI, TO]) parseResponse(responseString string) (TO, error) {
 	if responseString == "" {
 		return zero, fmt.Errorf("empty response")
 	}
-	responseString = strings.TrimPrefix(responseString, "```json")
-	responseString = strings.TrimSuffix(responseString, "```")
-
-	response, err := jsonx.Deserialize[TO](responseString, a.promptTemplate.GetSampleResponseObject())
+	// DeserializeLLM tolerates markdown fences, surrounding prose, and
+	// truncation (repairing where possible) before unmarshaling into TO.
+	response, _, err := jsonx.DeserializeLLM[TO](responseString, a.promptTemplate.GetSampleResponseObject())
 	if err != nil {
-		return zero, fmt.Errorf("failed to parse response JSON: %w (raw response: %q)", err, responseString)
+		return zero, fmt.Errorf("failed to parse response JSON: %w", err)
 	}
-
 	return response, nil
 }
 

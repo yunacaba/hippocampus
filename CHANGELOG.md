@@ -3,6 +3,29 @@
 All notable changes to this project are documented here. This project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `jsonx` LLM-tolerant parsing, ported from Story Builder's `aiutil`:
+  `DeserializeLLM[T]` / `DeserializeAnyLLM` (clean → unmarshal → `jsonrepair` →
+  truncation-close fallback, reporting whether repair was needed), plus
+  `CleanLLMJSON`, `CleanMarkdownBlock`, `ExtractJSONValue` (object or array),
+  `SalvageArrayElements`, and `Truncate`. The agent now parses model output
+  through this path, tolerating markdown fences, surrounding prose, and
+  truncation.
+
+### Changed
+
+- Minimum Go version is now **1.26** (transitively required by
+  `github.com/kaptinlin/jsonrepair`).
+
+### Removed
+
+- `DeserializeFromPartialString` / `DeserializeAnyFromPartialString` and the
+  `github.com/blaze2305/partial-json-parser` dependency. Superseded by the
+  strictly-more-capable `DeserializeLLM` / `DeserializeAnyLLM`.
+
 ## [0.2.1] - 2026-06-01
 
 ### Added
