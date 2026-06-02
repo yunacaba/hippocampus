@@ -36,6 +36,9 @@ var (
 	WithToolChoice           = base.WithToolChoice
 	WithResponseSchema       = base.WithResponseSchema
 	WithStrictResponseSchema = base.WithStrictResponseSchema
+	WithPromptCaching        = base.WithPromptCaching
+	WithThinking             = base.WithThinking
+	WithThinkingBudget       = base.WithThinkingBudget
 )
 
 type AgentExecutionDetails struct {

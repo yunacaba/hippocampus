@@ -159,6 +159,15 @@ func applyOptions(params *oai.ChatCompletionNewParams, co base.CallOptions) {
 			},
 		}
 	}
+
+	// Extended thinking maps to reasoning effort (only honored by reasoning
+	// models, e.g. o-series / gpt-5; ignored by others).
+	if co.Thinking {
+		params.ReasoningEffort = shared.ReasoningEffortMedium
+	}
+
+	// PromptCaching is a no-op for OpenAI: prompt caching is automatic for
+	// prompts over the provider's threshold, with no request flag to set.
 }
 
 // responseFromOpenAI converts an OpenAI chat completion into an owned response.

@@ -53,6 +53,13 @@ func TestApplyOptions_JSONMode(t *testing.T) {
 	}
 }
 
+func TestApplyOptions_ThinkingReasoningEffort(t *testing.T) {
+	s := marshalParams(t, base.WithThinking())
+	if !strings.Contains(s, `"reasoning_effort":"medium"`) {
+		t.Errorf("expected reasoning_effort for thinking: %s", s)
+	}
+}
+
 func TestApplyOptions_ResponseSchema(t *testing.T) {
 	schema := map[string]any{
 		"type":       "object",
