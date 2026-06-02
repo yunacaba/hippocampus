@@ -5,6 +5,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`openaicompat` package** — providers for OpenAI-compatible servers (local
+  runtimes like Ollama and LM Studio). `NewProvider(baseURL, …)` plus `Ollama()`
+  / `LMStudio()` presets: no API key required, arbitrary model names, and
+  response-schema enforcement off by default (`WithResponseSchemaSupport(true)`
+  to enable for servers that constrain output). Thin wrapper over the `openai`
+  adapter.
+
 ## [0.3.0] - 2026-06-02
 
 ### Added
