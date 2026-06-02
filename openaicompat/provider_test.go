@@ -59,6 +59,11 @@ func TestNewProvider_RoutesToBaseURLWithArbitraryModel(t *testing.T) {
 	if !strings.Contains(tr.url, "local.test") {
 		t.Errorf("request not routed to base URL: %s", tr.url)
 	}
+	// A non-empty Authorization header is sent (the placeholder key), so servers
+	// that require one still work.
+	if !tr.hasKey {
+		t.Error("expected an Authorization header (placeholder key) to be sent")
+	}
 }
 
 func TestNewProvider_ResponseSchemaOffByDefault(t *testing.T) {

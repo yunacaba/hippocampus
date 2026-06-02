@@ -35,9 +35,11 @@ func TestOllamaStructuredOutputEndToEnd(t *testing.T) {
 		Country string `json:"country"`
 	}
 
-	// Enable schema support so we exercise response_format if the server honors
-	// it; if not, the tolerant parser still recovers the typed result.
-	provider := openaicompat.NewProvider(baseURL, openaicompat.WithResponseSchemaSupport(true))
+	// Use the default (schema support off): the prompt-guided + tolerant-parser
+	// path works against any OpenAI-compatible server, so this is a reliable
+	// end-to-end smoke test. To exercise response_format enforcement against a
+	// server that supports it, add openaicompat.WithResponseSchemaSupport(true).
+	provider := openaicompat.NewProvider(baseURL)
 	agent, err := hippo.NewAgentWithTemplateText(
 		"Answer the question.\nQuestion: {{.question}}",
 		&req{},
