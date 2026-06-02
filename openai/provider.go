@@ -41,6 +41,11 @@ func WithRequestOptions(opts ...option.RequestOption) Option {
 // it false for an OpenAI-compatible server that doesn't support json_schema, so
 // the agent falls back to prompt guidance + tolerant parsing instead of sending
 // a request the server would reject.
+//
+// This is a provider-wide declaration, not per-model: if one provider serves a
+// mix of models with differing support (e.g. a current model plus a legacy one
+// that only does json_object), set it false and rely on prompt guidance, or use
+// separate providers.
 func WithResponseSchemaSupport(supported bool) Option {
 	return func(p *Provider) { p.responseSchema = supported }
 }
