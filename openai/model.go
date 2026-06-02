@@ -14,11 +14,12 @@ import (
 // the end-user account ID set via hippocampus.WithUserID as the request's
 // "user" field.
 type openaiModel struct {
-	name      string
-	llmType   base.LLMType
-	llmVendor base.LLMVendor
-	tracer    hippo.Tracer
-	client    oai.Client
+	name                   string
+	llmType                base.LLMType
+	llmVendor              base.LLMVendor
+	supportsResponseSchema bool
+	tracer                 hippo.Tracer
+	client                 oai.Client
 }
 
 var _ base.Model = (*openaiModel)(nil)
@@ -26,6 +27,11 @@ var _ base.Model = (*openaiModel)(nil)
 func (m *openaiModel) Name() string              { return m.name }
 func (m *openaiModel) LLMType() base.LLMType     { return m.llmType }
 func (m *openaiModel) LLMVendor() base.LLMVendor { return m.llmVendor }
+
+// SupportsResponseSchema reports whether the endpoint honors response_format
+// json_schema (true for the real OpenAI API; configurable for compatible
+// servers via WithResponseSchemaSupport).
+func (m *openaiModel) SupportsResponseSchema() bool { return m.supportsResponseSchema }
 
 func (m *openaiModel) Generate(
 	ctx context.Context,

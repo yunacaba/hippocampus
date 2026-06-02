@@ -40,23 +40,23 @@ func NewProvider(keys hippo.KeyProvider, opts ...Option) *Provider {
 // Model returns a configured model for the given name and LLM type. The type
 // must be a Google AI model.
 func (p *Provider) Model(name string, llmType base.LLMType) (base.Model, error) {
-	if llmType == nil || !llmType.IsValid() {
-		return nil, fmt.Errorf("invalid LLM type: %v", llmType)
+	if llmType == nil || llmType.String() == "" {
+		return nil, fmt.Errorf("nil or empty LLM type")
 	}
-	vendor := llmType.Vendor()
-	if vendor == nil || vendor.String() != hippo.LLMVendorGoogleAI.String() {
-		return nil, fmt.Errorf("langchain provider only supports Google AI, got %q", llmType.String())
+	// Accept any model name; reject only a known other-vendor model.
+	if v := llmType.Vendor(); v != nil && v.String() != hippo.LLMVendorGoogleAI.String() {
+		return nil, fmt.Errorf("langchain provider got a %s model: %q", v.String(), llmType.String())
 	}
 
-	apiKey, err := p.keys.APIKey(context.Background(), vendor)
+	apiKey, err := p.keys.APIKey(context.Background(), hippo.LLMVendorGoogleAI)
 	if err != nil {
-		return nil, fmt.Errorf("no API key for vendor %q: %w", vendor.String(), err)
+		return nil, fmt.Errorf("no API key for Google AI: %w", err)
 	}
 
 	model := &langchainModel{
 		name:      name,
 		llmType:   llmType,
-		llmVendor: vendor,
+		llmVendor: hippo.LLMVendorGoogleAI,
 		apiKey:    apiKey,
 		tracer:    p.tracer,
 	}

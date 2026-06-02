@@ -201,8 +201,9 @@ func TestAgent_StructuredOutputSetsSchema(t *testing.T) {
 	assert.True(t, ok, "schema should describe the result field")
 }
 
-// TestAgent_NoStructuredOutputByDefault verifies the option is off by default.
-func TestAgent_NoStructuredOutputByDefault(t *testing.T) {
+// TestAgent_StructuredOutputOnByDefault verifies the schema is attached without
+// an explicit opt-in (default on) for an object output type on a capable model.
+func TestAgent_StructuredOutputOnByDefault(t *testing.T) {
 	type TestRequest struct {
 		Message string `json:"message"`
 	}
@@ -228,7 +229,74 @@ func TestAgent_NoStructuredOutputByDefault(t *testing.T) {
 	require.NoError(t, err)
 
 	co := base.ResolveCallOptions(mockModel.CapturedInvocations()[0].Options)
-	assert.Nil(t, co.ResponseSchema, "structured output must be off by default")
+	require.NotNil(t, co.ResponseSchema, "structured output should be on by default")
+}
+
+// TestAgent_StructuredOutputOptOut verifies SetStructuredOutput(false) disables it.
+func TestAgent_StructuredOutputOptOut(t *testing.T) {
+	type TestRequest struct {
+		Message string `json:"message"`
+	}
+	type TestResponse struct {
+		Result string `json:"result"`
+	}
+
+	mockModel := agenttest.NewMockModel(
+		"sa",
+		hippo.AnthropicClaudeHaiku45,
+		[]*base.ModelCallResponse{{Content: `{"result":"ok"}`}},
+	)
+	mockProvider := agenttest.NewMockModelProvider()
+	mockProvider.AddModel("sa", mockModel)
+
+	agent, err := hippo.NewAgentWithTemplateText("Answer.", &TestRequest{}, &TestResponse{}).
+		SetName("sa").
+		SetModel(mockProvider, hippo.AnthropicClaudeHaiku45).
+		SetStructuredOutput(false).
+		Build()
+	require.NoError(t, err)
+
+	_, err = agent.Execute(context.Background(), &TestRequest{Message: "hi"}, nil)
+	require.NoError(t, err)
+
+	co := base.ResolveCallOptions(mockModel.CapturedInvocations()[0].Options)
+	assert.Nil(t, co.ResponseSchema, "structured output should be off after opt-out")
+}
+
+// fakeUncapableModel is a model that reports it cannot enforce a response schema.
+type fakeUncapableModel struct{ base.Model }
+
+func (fakeUncapableModel) SupportsResponseSchema() bool { return false }
+
+// TestAgent_StructuredOutputGatedByCapability verifies the schema is not attached
+// when the model reports it can't enforce one (e.g. a local server).
+func TestAgent_StructuredOutputGatedByCapability(t *testing.T) {
+	type TestRequest struct {
+		Message string `json:"message"`
+	}
+	type TestResponse struct {
+		Result string `json:"result"`
+	}
+
+	inner := agenttest.NewMockModel(
+		"sa",
+		hippo.OpenAIGPT4OMini,
+		[]*base.ModelCallResponse{{Content: `{"result":"ok"}`}},
+	)
+	mockProvider := agenttest.NewMockModelProvider()
+	mockProvider.AddModel("sa", fakeUncapableModel{Model: inner})
+
+	agent, err := hippo.NewAgentWithTemplateText("Answer.", &TestRequest{}, &TestResponse{}).
+		SetName("sa").
+		SetModel(mockProvider, hippo.OpenAIGPT4OMini).
+		Build()
+	require.NoError(t, err)
+
+	_, err = agent.Execute(context.Background(), &TestRequest{Message: "hi"}, nil)
+	require.NoError(t, err)
+
+	co := base.ResolveCallOptions(inner.CapturedInvocations()[0].Options)
+	assert.Nil(t, co.ResponseSchema, "schema should be gated off for an incapable model")
 }
 
 // TestAgent_StructuredOutputSkippedForNonObject verifies that structured output

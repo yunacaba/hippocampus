@@ -324,11 +324,12 @@ func (a *Agent[TI, TO]) optionsForPrompt(formattedPrompt *FormattedPrompt) []Mod
 
 	// When structured output is enabled, derive the JSON Schema from the output
 	// type so adapters can enforce it natively (OpenAI response_format,
-	// Anthropic forced tool). Provider structured output requires an
-	// object-rooted schema, so for non-object output types (slices, scalars) we
-	// skip enforcement and fall back to the schema already injected into the
-	// prompt plus the tolerant jsonx parser. Schema errors fall back the same way.
-	if a.structuredOutput {
+	// Anthropic forced tool). We attach it only when:
+	//   - the model reports it can enforce a response schema, and
+	//   - the schema is object-rooted (providers require an object root).
+	// Otherwise we fall back to the schema already injected into the prompt plus
+	// the tolerant jsonx parser. Schema errors fall back the same way.
+	if a.structuredOutput && modelSupportsResponseSchema(a.model) {
 		if schema, err := jsonx.SchemaMap(a.promptTemplate.GetSampleResponseObject()); err == nil && schema["type"] == "object" {
 			options = append(options, WithResponseSchema("response", schema))
 		}
@@ -363,4 +364,23 @@ func (a *Agent[TI, TO]) debugConsoleLog(tmpl string, args ...interface{}) {
 // SetToolInvoker replaces the toolbox's invoker (for evaluation framework).
 func (a *Agent[TI, TO]) SetToolInvoker(invoker ToolInvoker) {
 	a.toolbox.SetToolInvoker(invoker)
+}
+
+// ResponseSchemaCapable is implemented by models that can enforce a response
+// schema natively (e.g. OpenAI response_format, Anthropic forced tool). The
+// agent consults it before attaching a response schema for structured output;
+// a model that reports false (e.g. a local server that doesn't support
+// json_schema) keeps the prompt-guided + tolerant-parser path instead.
+type ResponseSchemaCapable interface {
+	SupportsResponseSchema() bool
+}
+
+// modelSupportsResponseSchema reports whether the model can enforce a response
+// schema. Models that don't implement ResponseSchemaCapable are assumed capable
+// (the conservative default for mocks and adapters predating the interface).
+func modelSupportsResponseSchema(m Model) bool {
+	if c, ok := m.(ResponseSchemaCapable); ok {
+		return c.SupportsResponseSchema()
+	}
+	return true
 }

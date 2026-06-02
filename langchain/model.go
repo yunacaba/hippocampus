@@ -56,6 +56,11 @@ func (m *langchainModel) Name() string              { return m.name }
 func (m *langchainModel) LLMType() base.LLMType     { return m.llmType }
 func (m *langchainModel) LLMVendor() base.LLMVendor { return m.llmVendor }
 
+// SupportsResponseSchema reports false: Google AI via langchaingo exposes only
+// a JSON MIME mode, not schema enforcement, so the agent relies on prompt
+// guidance + the tolerant jsonx parser instead.
+func (m *langchainModel) SupportsResponseSchema() bool { return false }
+
 func (m *langchainModel) Generate(
 	ctx context.Context,
 	request base.ModelCallRequest,

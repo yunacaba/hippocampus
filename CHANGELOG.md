@@ -29,6 +29,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Minimum Go version is now **1.26** (transitively required by
   `github.com/kaptinlin/jsonrepair`).
+- **Structured output is now on by default** for agents. The schema is attached
+  only when the model reports it can enforce one (new `ResponseSchemaCapable`
+  interface — OpenAI/Anthropic report true, Google AI false) and the output type
+  is object-rooted; otherwise the agent falls back to prompt guidance + the
+  tolerant parser. Opt out with `SetStructuredOutput(false)`.
+- Provider `Model()` now accepts **arbitrary model-name strings** (using the name
+  as the wire model id), rejecting only a model that is a *known other vendor*.
+  This lets new/unreleased models — and OpenAI-compatible local models — be used
+  without a predefined constant.
+- The OpenAI provider gained `WithResponseSchemaSupport(bool)` (default true) so
+  OpenAI-compatible endpoints that don't honor `response_format: json_schema`
+  can declare it, gating structured output off for them.
 - `jsonx` schema generation (`SchemaBytes`/`SchemaString`/`SchemaMap`) now uses
   `github.com/google/jsonschema-go` instead of `swaggest/jsonschema-go` — the
   package the Go MCP SDK standardizes on, which also provides validation for

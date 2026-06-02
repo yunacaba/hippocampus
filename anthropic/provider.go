@@ -50,17 +50,17 @@ func NewProvider(keys hippo.KeyProvider, opts ...Option) *Provider {
 // Model returns a configured model for the given name and LLM type. The type
 // must be an Anthropic model.
 func (p *Provider) Model(name string, llmType base.LLMType) (base.Model, error) {
-	if llmType == nil || !llmType.IsValid() {
-		return nil, fmt.Errorf("invalid LLM type: %v", llmType)
+	if llmType == nil || llmType.String() == "" {
+		return nil, fmt.Errorf("nil or empty LLM type")
 	}
-	vendor := llmType.Vendor()
-	if vendor == nil || vendor.String() != hippo.LLMVendorAnthropic.String() {
-		return nil, fmt.Errorf("anthropic provider only supports Anthropic models, got %q", llmType.String())
+	// Accept any model name; reject only a known other-vendor model.
+	if v := llmType.Vendor(); v != nil && v.String() != hippo.LLMVendorAnthropic.String() {
+		return nil, fmt.Errorf("anthropic provider got a %s model: %q", v.String(), llmType.String())
 	}
 
-	apiKey, err := p.keys.APIKey(context.Background(), vendor)
+	apiKey, err := p.keys.APIKey(context.Background(), hippo.LLMVendorAnthropic)
 	if err != nil {
-		return nil, fmt.Errorf("no API key for vendor %q: %w", vendor.String(), err)
+		return nil, fmt.Errorf("no API key for Anthropic: %w", err)
 	}
 
 	reqOpts := append([]option.RequestOption{option.WithAPIKey(apiKey)}, p.reqOpts...)
@@ -69,7 +69,7 @@ func (p *Provider) Model(name string, llmType base.LLMType) (base.Model, error) 
 	return &anthropicModel{
 		name:      name,
 		llmType:   llmType,
-		llmVendor: vendor,
+		llmVendor: hippo.LLMVendorAnthropic,
 		tracer:    p.tracer,
 		client:    client,
 	}, nil
