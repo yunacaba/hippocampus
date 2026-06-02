@@ -45,6 +45,7 @@ A complete, runnable version lives in [`sample/`](./sample); run it with
 | [`openai`](./openai) | Direct-SDK OpenAI adapter (sets the `user` field). |
 | [`anthropic`](./anthropic) | Direct-SDK Anthropic adapter (sets `metadata.user_id`). |
 | [`langchain`](./langchain) | langchaingo-backed adapter for Google AI. |
+| [`openaicompat`](./openaicompat) | Providers for OpenAI-compatible servers — local runtimes like Ollama and LM Studio. |
 | [`agenttest`](./agenttest) | Mocks: `MockModel`, `MockModelProvider`, `MockAgentObserver`, `MockToolDelegate`. |
 | [`sample`](./sample) | Runnable example. |
 
@@ -88,6 +89,21 @@ Model names are not restricted to the predefined constants — any string is
 accepted (used as the wire model id), so new models and OpenAI-compatible local
 servers work too. For a local server that doesn't honor `response_format`, use
 `openai.WithResponseSchemaSupport(false)` so the agent falls back gracefully.
+
+### Local models (Ollama, LM Studio)
+
+The [`openaicompat`](./openaicompat) package wraps the OpenAI adapter for
+OpenAI-compatible servers — no API key required, arbitrary model names, and
+schema enforcement off by default (enable with `WithResponseSchemaSupport(true)`
+for servers that constrain output):
+
+```go
+provider := openaicompat.Ollama() // or LMStudio(), or NewProvider("http://host/v1")
+agent, _ := hippocampus.NewAgentWithTemplateText(tmpl, &Req{}, &Resp{}).
+    SetName("local").
+    SetModel(provider, hippocampus.LLMType("qwen2.5")).
+    Build()
+```
 
 ## Tracing and keys
 
