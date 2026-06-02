@@ -34,6 +34,7 @@ func NewAgent[I any, O any](
 			sampleResponse:    sampleResponse,
 			tools:             []AnyTool{},
 			debugToolCalls:    false,
+			structuredOutput:  true, // default on; SetStructuredOutput(false) opts out
 			maxIterations:     5,
 			toolCallingPolicy: ToolCallingAnyIteration, // Default: allow tools in any iteration
 		},
@@ -53,6 +54,7 @@ func NewAgentWithTemplateText[I any, O any](
 			templateText:      templateText,
 			tools:             []AnyTool{},
 			debugToolCalls:    false,
+			structuredOutput:  true, // default on; SetStructuredOutput(false) opts out
 			maxIterations:     5,
 			toolCallingPolicy: ToolCallingAnyIteration, // Default: allow tools in any iteration
 		},
@@ -103,15 +105,17 @@ func (b *OptionsAgentBuilder[I, O]) SetDebugToolCalls(debugToolCalls bool) *Opti
 	return b
 }
 
-// SetStructuredOutput enables provider-native structured output: the JSON Schema
-// derived from the output type O is sent to the model (OpenAI response_format
-// json_schema; Anthropic a forced output tool) so it returns schema-conformant
-// JSON. Adapters that can't enforce it fall back to prompt guidance + cleaning.
-// Default off.
+// SetStructuredOutput toggles provider-native structured output. It is on by
+// default: the JSON Schema derived from the output type O is sent to the model
+// (OpenAI response_format json_schema; Anthropic a forced output tool) so it
+// returns schema-conformant JSON. Call SetStructuredOutput(false) to opt out
+// (e.g. for a local/OpenAI-compatible server that rejects json_schema).
 //
-// Only object-rooted output types are enforced (providers require an object
-// schema root); for slice or scalar O the schema is omitted and parsing relies
-// on prompt guidance plus the tolerant jsonx parser.
+// Enforcement is attached only when the model reports it can enforce a schema
+// (see ResponseSchemaCapable) and the output type is object-rooted (providers
+// require an object schema root). Otherwise — and whenever it's disabled —
+// parsing relies on the schema injected into the prompt plus the tolerant
+// jsonx parser.
 func (b *OptionsAgentBuilder[I, O]) SetStructuredOutput(enabled bool) *OptionsAgentBuilder[I, O] {
 	b.args.structuredOutput = enabled
 	return b

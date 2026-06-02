@@ -26,6 +26,10 @@ func (m *anthropicModel) Name() string              { return m.name }
 func (m *anthropicModel) LLMType() base.LLMType     { return m.llmType }
 func (m *anthropicModel) LLMVendor() base.LLMVendor { return m.llmVendor }
 
+// SupportsResponseSchema reports that Anthropic can enforce a response schema
+// (via a forced output tool when the call has no other tools).
+func (m *anthropicModel) SupportsResponseSchema() bool { return true }
+
 func (m *anthropicModel) Generate(
 	ctx context.Context,
 	request base.ModelCallRequest,

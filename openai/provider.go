@@ -14,9 +14,10 @@ import (
 // Provider is a base.ModelProvider that builds direct-SDK OpenAI models. API
 // keys are obtained from a hippocampus.KeyProvider.
 type Provider struct {
-	keys    hippo.KeyProvider
-	tracer  hippo.Tracer
-	reqOpts []option.RequestOption
+	keys           hippo.KeyProvider
+	tracer         hippo.Tracer
+	reqOpts        []option.RequestOption
+	responseSchema bool
 }
 
 var _ base.ModelProvider = (*Provider)(nil)
@@ -35,11 +36,26 @@ func WithRequestOptions(opts ...option.RequestOption) Option {
 	return func(p *Provider) { p.reqOpts = append(p.reqOpts, opts...) }
 }
 
+// WithResponseSchemaSupport declares whether the endpoint honors
+// response_format json_schema. The default is true (the real OpenAI API). Set
+// it false for an OpenAI-compatible server that doesn't support json_schema, so
+// the agent falls back to prompt guidance + tolerant parsing instead of sending
+// a request the server would reject.
+//
+// This is a provider-wide declaration, not per-model: if one provider serves a
+// mix of models with differing support (e.g. a current model plus a legacy one
+// that only does json_object), set it false and rely on prompt guidance, or use
+// separate providers.
+func WithResponseSchemaSupport(supported bool) Option {
+	return func(p *Provider) { p.responseSchema = supported }
+}
+
 // NewProvider creates an OpenAI model provider.
 func NewProvider(keys hippo.KeyProvider, opts ...Option) *Provider {
 	p := &Provider{
-		keys:   keys,
-		tracer: hippo.NoopTracer{},
+		keys:           keys,
+		tracer:         hippo.NoopTracer{},
+		responseSchema: true,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -50,27 +66,31 @@ func NewProvider(keys hippo.KeyProvider, opts ...Option) *Provider {
 // Model returns a configured model for the given name and LLM type. The type
 // must be an OpenAI model.
 func (p *Provider) Model(name string, llmType base.LLMType) (base.Model, error) {
-	if llmType == nil || !llmType.IsValid() {
-		return nil, fmt.Errorf("invalid LLM type: %v", llmType)
+	if llmType == nil || llmType.String() == "" {
+		return nil, fmt.Errorf("nil or empty LLM type")
 	}
-	vendor := llmType.Vendor()
-	if vendor == nil || vendor.String() != hippo.LLMVendorOpenAI.String() {
-		return nil, fmt.Errorf("openai provider only supports OpenAI models, got %q", llmType.String())
+	// Accept any model name, using it as the wire model id — this lets new
+	// OpenAI models (and OpenAI-compatible local models) be used without a
+	// constant. Reject only a model that is a *known* other vendor, to catch
+	// passing e.g. an Anthropic model to the OpenAI provider.
+	if v := llmType.Vendor(); v != nil && v.String() != hippo.LLMVendorOpenAI.String() {
+		return nil, fmt.Errorf("openai provider got a %s model: %q", v.String(), llmType.String())
 	}
 
-	apiKey, err := p.keys.APIKey(context.Background(), vendor)
+	apiKey, err := p.keys.APIKey(context.Background(), hippo.LLMVendorOpenAI)
 	if err != nil {
-		return nil, fmt.Errorf("no API key for vendor %q: %w", vendor.String(), err)
+		return nil, fmt.Errorf("no API key for OpenAI: %w", err)
 	}
 
 	reqOpts := append([]option.RequestOption{option.WithAPIKey(apiKey)}, p.reqOpts...)
 	client := oai.NewClient(reqOpts...)
 
 	return &openaiModel{
-		name:      name,
-		llmType:   llmType,
-		llmVendor: vendor,
-		tracer:    p.tracer,
-		client:    client,
+		name:                   name,
+		llmType:                llmType,
+		llmVendor:              hippo.LLMVendorOpenAI,
+		supportsResponseSchema: p.responseSchema,
+		tracer:                 p.tracer,
+		client:                 client,
 	}, nil
 }

@@ -15,6 +15,45 @@ import (
 	"github.com/yunacaba/hippocampus/anthropic"
 )
 
+// TestAnthropicStructuredOutputEndToEnd exercises the default-on structured
+// output path (forced output tool) against the real API: a tool-less agent with
+// a typed object output.
+func TestAnthropicStructuredOutputEndToEnd(t *testing.T) {
+	if os.Getenv("ANTHROPIC_API_KEY") == "" {
+		t.Skip("ANTHROPIC_API_KEY not set")
+	}
+
+	type req struct {
+		Question string `json:"question"`
+	}
+	type answer struct {
+		Capital string `json:"capital"`
+		Country string `json:"country"`
+	}
+
+	provider := anthropic.NewProvider(hippo.EnvKeyProvider{})
+	agent, err := hippo.NewAgentWithTemplateText(
+		"Answer the question.\nQuestion: {{.question}}",
+		&req{},
+		&answer{},
+	).
+		SetName("capital_agent").
+		SetModel(provider, hippo.AnthropicClaudeHaiku45).
+		Build() // structured output on by default -> forced output tool (no other tools)
+	if err != nil {
+		t.Fatalf("build agent: %v", err)
+	}
+
+	out, err := agent.Execute(context.Background(),
+		&req{Question: "What is the capital of France, and what country is it in?"}, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if out.Capital == "" || out.Country == "" {
+		t.Errorf("expected a populated typed answer, got %#v", out)
+	}
+}
+
 func TestAnthropicToolCallEndToEnd(t *testing.T) {
 	if os.Getenv("ANTHROPIC_API_KEY") == "" {
 		t.Skip("ANTHROPIC_API_KEY not set")

@@ -76,12 +76,18 @@ so `WithJSONMode` is applied as a system instruction there.
 
 ### Structured outputs
 
-Call `builder.SetStructuredOutput(true)` to have the agent derive a JSON Schema
-from the output type `O` and ask the model to conform to it: OpenAI uses
-`response_format: json_schema`, Anthropic uses a forced output tool (when the
-call has no other tools). Google AI can't enforce a schema through langchaingo,
-so it falls back to prompt guidance plus the tolerant `jsonx` parser. You can
-also set a schema directly per call with `WithResponseSchema`.
+Agents derive a JSON Schema from the output type `O` and ask the model to
+conform to it — **on by default**. OpenAI uses `response_format: json_schema`,
+Anthropic uses a forced output tool (when the call has no other tools). The
+schema is attached only when the model can enforce it (`ResponseSchemaCapable`)
+and `O` is object-rooted; otherwise the agent relies on prompt guidance plus the
+tolerant `jsonx` parser. Opt out with `SetStructuredOutput(false)`, or set a
+schema per call with `WithResponseSchema`.
+
+Model names are not restricted to the predefined constants — any string is
+accepted (used as the wire model id), so new models and OpenAI-compatible local
+servers work too. For a local server that doesn't honor `response_format`, use
+`openai.WithResponseSchemaSupport(false)` so the agent falls back gracefully.
 
 ## Tracing and keys
 
