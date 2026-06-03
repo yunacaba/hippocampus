@@ -75,6 +75,11 @@ each adapter to its SDK: `WithTemperature`, `WithMaxTokens`, `WithTopP`,
 (`"auto"`/`"required"`/`"none"`/a tool name). Anthropic has no JSON-mode flag,
 so `WithJSONMode` is applied as a system instruction there.
 
+`WithPromptCaching` and `WithThinking`/`WithThinkingBudget` enable provider
+prompt caching and extended thinking/reasoning where supported (Anthropic
+`cache_control` + `thinking`; OpenAI `reasoning_effort`, with caching automatic).
+Adapters that don't support them ignore them.
+
 ### Structured outputs
 
 Agents derive a JSON Schema from the output type `O` and ask the model to

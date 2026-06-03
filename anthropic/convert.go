@@ -106,6 +106,10 @@ func structuredOutputToolName(rs *base.ResponseSchema) string {
 	return "respond"
 }
 
+// defaultThinkingBudget is used when extended thinking is enabled without an
+// explicit budget. Anthropic requires a minimum of 1024.
+const defaultThinkingBudget = 2048
+
 // applyOptions maps resolved owned call options onto the Anthropic request.
 func applyOptions(params *sdk.MessageNewParams, co base.CallOptions) {
 	if co.MaxTokens > 0 {
@@ -113,7 +117,21 @@ func applyOptions(params *sdk.MessageNewParams, co base.CallOptions) {
 	} else {
 		params.MaxTokens = defaultMaxTokens
 	}
-	if co.Temperature != nil {
+
+	// Extended thinking, when enabled, requires a budget >= 1024 that is also
+	// strictly less than max_tokens, and is incompatible with a custom
+	// temperature. So set it before temperature and adjust max_tokens to leave
+	// room for the answer beyond the thinking budget.
+	if co.Thinking {
+		budget := int64(co.ThinkingBudget)
+		if budget < 1024 {
+			budget = defaultThinkingBudget
+		}
+		if params.MaxTokens <= budget {
+			params.MaxTokens = budget + defaultMaxTokens
+		}
+		params.Thinking = sdk.ThinkingConfigParamOfEnabled(budget)
+	} else if co.Temperature != nil {
 		params.Temperature = sdk.Float(*co.Temperature)
 	}
 	if co.TopP > 0 {
@@ -150,15 +168,18 @@ func applyOptions(params *sdk.MessageNewParams, co base.CallOptions) {
 			Schema:      co.ResponseSchema.Schema,
 		}})
 		params.ToolChoice = sdk.ToolChoiceParamOfTool(name)
-		return
-	}
-
-	// Anthropic has no dedicated JSON-mode flag; steer it with a system
-	// instruction so JSONMode is honored rather than silently dropped.
-	if co.JSONMode {
+	} else if co.JSONMode {
+		// Anthropic has no dedicated JSON-mode flag; steer it with a system
+		// instruction so JSONMode is honored rather than silently dropped.
 		params.System = append(params.System, sdk.TextBlockParam{
 			Text: "Respond with only a single valid JSON object and no other text.",
 		})
+	}
+
+	// Prompt caching: mark the final system block with cache_control so the
+	// (typically large, reusable) system prompt is cached across calls.
+	if co.PromptCaching && len(params.System) > 0 {
+		params.System[len(params.System)-1].CacheControl = sdk.NewCacheControlEphemeralParam()
 	}
 }
 

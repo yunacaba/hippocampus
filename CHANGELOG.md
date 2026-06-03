@@ -5,6 +5,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Prompt caching and extended thinking / reasoning.** New `WithPromptCaching`,
+  `WithThinking`, and `WithThinkingBudget` call options:
+  - Anthropic → `cache_control` on the system prompt; extended thinking via
+    `thinking` (budget defaulted/clamped >= 1024, `max_tokens` raised above the
+    budget, temperature suppressed as the API requires).
+  - OpenAI → reasoning effort (`reasoning_effort`) for thinking; prompt caching
+    is automatic, so `WithPromptCaching` is a no-op.
+  - Google AI (langchaingo) → not supported; ignored.
+
 ## [0.4.0] - 2026-06-02
 
 ### Added

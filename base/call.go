@@ -42,6 +42,17 @@ type CallOptions struct {
 	JSONMode bool
 	// ResponseSchema, when set, requests schema-conformant output.
 	ResponseSchema *ResponseSchema
+	// PromptCaching requests provider prompt caching where supported
+	// (Anthropic marks the system prompt with cache_control; OpenAI caches
+	// automatically; others ignore it).
+	PromptCaching bool
+	// Thinking enables extended thinking / reasoning where supported
+	// (Anthropic extended thinking; OpenAI reasoning effort). Adapters that
+	// don't support it ignore it.
+	Thinking bool
+	// ThinkingBudget is the token budget for extended thinking (Anthropic).
+	// Ignored unless Thinking is true; a default is applied when zero.
+	ThinkingBudget int
 }
 
 // CallOption is a functional option applied to a model call. Replaces
@@ -88,6 +99,27 @@ func WithJSONMode() CallOption {
 // WithTools sets the tools available to the model on this call.
 func WithTools(tools []ToolSpec) CallOption {
 	return func(o *CallOptions) { o.Tools = tools }
+}
+
+// WithPromptCaching requests provider prompt caching where supported.
+func WithPromptCaching() CallOption {
+	return func(o *CallOptions) { o.PromptCaching = true }
+}
+
+// WithThinking enables extended thinking / reasoning where supported, using a
+// provider default budget.
+func WithThinking() CallOption {
+	return func(o *CallOptions) { o.Thinking = true }
+}
+
+// WithThinkingBudget enables extended thinking with an explicit token budget
+// (Anthropic). For providers that take an effort level rather than a budget
+// (OpenAI), any positive budget simply enables reasoning.
+func WithThinkingBudget(budgetTokens int) CallOption {
+	return func(o *CallOptions) {
+		o.Thinking = true
+		o.ThinkingBudget = budgetTokens
+	}
 }
 
 // WithToolChoice sets the tool-choice policy: "auto", "required", "none", or a
