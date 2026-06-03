@@ -8,7 +8,7 @@ require (
 	github.com/kaptinlin/jsonrepair v0.2.16
 	github.com/openai/openai-go/v2 v2.7.1
 	github.com/stretchr/testify v1.11.1
-	github.com/tmc/langchaingo v0.1.14-pre.3
+	github.com/tmc/langchaingo v0.1.14
 	google.golang.org/protobuf v1.36.10
 )
 

@@ -8,44 +8,60 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/googleai"
+	"github.com/tmc/langchaingo/llms/ollama"
 
 	hippo "github.com/yunacaba/hippocampus"
 	"github.com/yunacaba/hippocampus/base"
 )
 
-// langchainModel is a base.Model backed by langchaingo. This adapter is used
-// only for Google AI; the OpenAI and Anthropic vendors have their own
-// direct-SDK adapters.
+// langchainModel is a base.Model backed by langchaingo. It serves Google AI
+// (keyed GenAI API) and local Ollama (keyless native API); the OpenAI and
+// Anthropic vendors have their own direct-SDK adapters.
 type langchainModel struct {
 	name      string
 	llmType   base.LLMType
 	llmVendor base.LLMVendor
-	apiKey    string
+	apiKey    string // Google AI
+	serverURL string // Ollama
 	tracer    hippo.Tracer
 	model     llms.Model
 }
 
 var _ base.Model = &langchainModel{}
 
-// initClient initializes the underlying langchaingo client. Only Google AI is
-// supported by this adapter.
+// initClient initializes the underlying langchaingo client for the model's
+// vendor.
 func (m *langchainModel) initClient() error {
 	httpClient := &http.Client{
 		Timeout: 120 * time.Second,
 	}
 
-	ctx := context.Background()
-	model, err := googleai.New(
-		ctx,
-		googleai.WithAPIKey(m.apiKey),
-		googleai.WithDefaultModel(m.llmType.String()),
-		googleai.WithHTTPClient(httpClient),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create %s client: %w", m.llmVendor.String(), err)
+	switch m.llmVendor.String() {
+	case hippo.LLMVendorOllama.String():
+		model, err := ollama.New(
+			ollama.WithModel(m.llmType.String()),
+			ollama.WithServerURL(m.serverURL),
+			ollama.WithHTTPClient(httpClient),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create %s client: %w", m.llmVendor.String(), err)
+		}
+		m.model = model
+		return nil
+	default: // Google AI
+		ctx := context.Background()
+		model, err := googleai.New(
+			ctx,
+			googleai.WithAPIKey(m.apiKey),
+			googleai.WithDefaultModel(m.llmType.String()),
+			googleai.WithHTTPClient(httpClient),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create %s client: %w", m.llmVendor.String(), err)
+		}
+		m.model = model
+		return nil
 	}
-	m.model = model
-	return nil
 }
 
 func (m *langchainModel) Name() string              { return m.name }
