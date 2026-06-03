@@ -95,12 +95,10 @@ func (m *langchainModel) Generate(
 				choice := completion.Choices[0]
 				metrics.ResponseLength = len(choice.Content)
 				// Token counts, when the vendor surfaces them in GenerationInfo.
-				if it, ok := choice.GenerationInfo["InputTokens"].(int); ok {
-					metrics.InputTokens = it
-				}
-				if ot, ok := choice.GenerationInfo["OutputTokens"].(int); ok {
-					metrics.OutputTokens = ot
-				}
+				// Google AI reports Input/OutputTokens; Ollama reports
+				// Prompt/CompletionTokens — read whichever the backend set.
+				metrics.InputTokens = firstGenInfoInt(choice.GenerationInfo, "InputTokens", "PromptTokens")
+				metrics.OutputTokens = firstGenInfoInt(choice.GenerationInfo, "OutputTokens", "CompletionTokens")
 			}
 			return resp, nil
 		})
@@ -117,4 +115,16 @@ func (m *langchainModel) wrapStreamingFunc(
 		hippo.MarkFirstToken(span, metrics, len(chunk))
 		return streamingFunc(ctx, chunk)
 	}
+}
+
+// firstGenInfoInt returns the first key present in the generation info as an
+// int, or 0 if none are. Backends name token counts differently (Google AI:
+// Input/OutputTokens; Ollama: Prompt/CompletionTokens).
+func firstGenInfoInt(genInfo map[string]any, keys ...string) int {
+	for _, k := range keys {
+		if v, ok := genInfo[k].(int); ok {
+			return v
+		}
+	}
+	return 0
 }

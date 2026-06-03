@@ -102,10 +102,10 @@ func optionsToLangchain(
 	// Extended thinking / reasoning. langchaingo reads this from call metadata
 	// via WithThinkingMode. ThinkingModeNone declines to enable thinking (the
 	// Ollama `think` wire field is then omitted, so the model uses its own
-	// default); ThinkingModeAuto enables it for models that support reasoning
-	// (e.g. Ollama deepseek-r1/qwq, and reasoning-capable Google models).
-	// langchaingo cannot send an explicit "off", so None and "unset" are
-	// equivalent on the wire.
+	// default); ThinkingModeAuto enables it for Ollama reasoning models
+	// (deepseek-r1/qwq). The Google AI backend does not consume this yet, so it
+	// is a no-op there. langchaingo cannot send an explicit "off", so None and
+	// "unset" are equivalent on the wire.
 	if co.Thinking {
 		opts = append(opts, llms.WithThinkingMode(llms.ThinkingModeAuto))
 		if co.ThinkingBudget > 0 {
