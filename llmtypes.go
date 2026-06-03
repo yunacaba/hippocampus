@@ -11,6 +11,11 @@ const (
 	LLMVendorAnthropic LLMVendor = "anthropic"
 	LLMVendorOpenAI    LLMVendor = "openai"
 	LLMVendorGoogleAI  LLMVendor = "googleai"
+	// LLMVendorOllama labels models served by a local Ollama runtime via the
+	// langchain adapter's native (/api/chat) backend. Ollama model names are
+	// arbitrary and have no predefined LLMType constant, so Vendor() never
+	// derives this from a name; it is set by the Ollama provider itself.
+	LLMVendorOllama LLMVendor = "ollama"
 )
 
 // LLMType represents the specific LLM model.
@@ -90,7 +95,7 @@ func (v LLMVendor) String() string {
 // IsValid returns true if the vendor is recognized.
 func (v LLMVendor) IsValid() bool {
 	switch v {
-	case LLMVendorAnthropic, LLMVendorOpenAI, LLMVendorGoogleAI:
+	case LLMVendorAnthropic, LLMVendorOpenAI, LLMVendorGoogleAI, LLMVendorOllama:
 		return true
 	default:
 		return false

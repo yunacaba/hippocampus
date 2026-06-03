@@ -8,44 +8,60 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/googleai"
+	"github.com/tmc/langchaingo/llms/ollama"
 
 	hippo "github.com/yunacaba/hippocampus"
 	"github.com/yunacaba/hippocampus/base"
 )
 
-// langchainModel is a base.Model backed by langchaingo. This adapter is used
-// only for Google AI; the OpenAI and Anthropic vendors have their own
-// direct-SDK adapters.
+// langchainModel is a base.Model backed by langchaingo. It serves Google AI
+// (keyed GenAI API) and local Ollama (keyless native API); the OpenAI and
+// Anthropic vendors have their own direct-SDK adapters.
 type langchainModel struct {
 	name      string
 	llmType   base.LLMType
 	llmVendor base.LLMVendor
-	apiKey    string
+	apiKey    string // Google AI
+	serverURL string // Ollama
 	tracer    hippo.Tracer
 	model     llms.Model
 }
 
 var _ base.Model = &langchainModel{}
 
-// initClient initializes the underlying langchaingo client. Only Google AI is
-// supported by this adapter.
+// initClient initializes the underlying langchaingo client for the model's
+// vendor.
 func (m *langchainModel) initClient() error {
 	httpClient := &http.Client{
 		Timeout: 120 * time.Second,
 	}
 
-	ctx := context.Background()
-	model, err := googleai.New(
-		ctx,
-		googleai.WithAPIKey(m.apiKey),
-		googleai.WithDefaultModel(m.llmType.String()),
-		googleai.WithHTTPClient(httpClient),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create %s client: %w", m.llmVendor.String(), err)
+	switch m.llmVendor.String() {
+	case hippo.LLMVendorOllama.String():
+		model, err := ollama.New(
+			ollama.WithModel(m.llmType.String()),
+			ollama.WithServerURL(m.serverURL),
+			ollama.WithHTTPClient(httpClient),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create %s client: %w", m.llmVendor.String(), err)
+		}
+		m.model = model
+		return nil
+	default: // Google AI
+		ctx := context.Background()
+		model, err := googleai.New(
+			ctx,
+			googleai.WithAPIKey(m.apiKey),
+			googleai.WithDefaultModel(m.llmType.String()),
+			googleai.WithHTTPClient(httpClient),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create %s client: %w", m.llmVendor.String(), err)
+		}
+		m.model = model
+		return nil
 	}
-	m.model = model
-	return nil
 }
 
 func (m *langchainModel) Name() string              { return m.name }
@@ -79,12 +95,10 @@ func (m *langchainModel) Generate(
 				choice := completion.Choices[0]
 				metrics.ResponseLength = len(choice.Content)
 				// Token counts, when the vendor surfaces them in GenerationInfo.
-				if it, ok := choice.GenerationInfo["InputTokens"].(int); ok {
-					metrics.InputTokens = it
-				}
-				if ot, ok := choice.GenerationInfo["OutputTokens"].(int); ok {
-					metrics.OutputTokens = ot
-				}
+				// Google AI reports Input/OutputTokens; Ollama reports
+				// Prompt/CompletionTokens — read whichever the backend set.
+				metrics.InputTokens = firstGenInfoInt(choice.GenerationInfo, "InputTokens", "PromptTokens")
+				metrics.OutputTokens = firstGenInfoInt(choice.GenerationInfo, "OutputTokens", "CompletionTokens")
 			}
 			return resp, nil
 		})
@@ -101,4 +115,16 @@ func (m *langchainModel) wrapStreamingFunc(
 		hippo.MarkFirstToken(span, metrics, len(chunk))
 		return streamingFunc(ctx, chunk)
 	}
+}
+
+// firstGenInfoInt returns the first key present in the generation info as an
+// int, or 0 if none are. Backends name token counts differently (Google AI:
+// Input/OutputTokens; Ollama: Prompt/CompletionTokens).
+func firstGenInfoInt(genInfo map[string]any, keys ...string) int {
+	for _, k := range keys {
+		if v, ok := genInfo[k].(int); ok {
+			return v
+		}
+	}
+	return 0
 }

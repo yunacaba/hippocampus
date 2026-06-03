@@ -1,19 +1,75 @@
 //go:build llm
 
-// Package langchain integration tests exercise a real Google AI call. They are
-// gated behind the `llm` build tag and require GOOGLE_AI_API_KEY:
+// Package langchain integration tests exercise a real Google AI call and a real
+// local Ollama call. They are gated behind the `llm` build tag:
 //
-//	GOOGLE_AI_API_KEY=... go test -tags=llm ./langchain/...
+//	GOOGLE_AI_API_KEY=... go test -tags=llm ./langchain/...   # Google AI
+//	go test -tags=llm ./langchain/...                         # Ollama (auto-skips if unreachable)
+//
+// The Ollama test targets OLLAMA_TEST_MODEL (default "gemma4") on the local
+// server and skips automatically when no Ollama server is reachable.
 package langchain_test
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	hippo "github.com/yunacaba/hippocampus"
 	"github.com/yunacaba/hippocampus/langchain"
 )
+
+// ollamaReachable reports whether a local Ollama server answers within a short
+// timeout, so the integration test can skip cleanly when one isn't running.
+func ollamaReachable() bool {
+	client := &http.Client{Timeout: 1500 * time.Millisecond}
+	resp, err := client.Get(langchain.OllamaServerURL + "/api/tags")
+	if err != nil {
+		return false
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
+func TestOllamaGenerateEndToEnd(t *testing.T) {
+	if !ollamaReachable() {
+		t.Skipf("no Ollama server reachable at %s", langchain.OllamaServerURL)
+	}
+	model := os.Getenv("OLLAMA_TEST_MODEL")
+	if model == "" {
+		model = "gemma4"
+	}
+
+	type req struct {
+		Topic string `json:"topic"`
+	}
+	type resp struct {
+		Fact string `json:"fact"`
+	}
+
+	provider := langchain.NewOllamaProvider("")
+	agent, err := hippo.NewAgentWithTemplateText(
+		"Reply with one short JSON object {\"fact\": \"...\"} about {{.topic}}.",
+		&req{},
+		&resp{Fact: "..."},
+	).
+		SetName("ollama_fact").
+		SetModel(provider, hippo.LLMType(model)).
+		Build()
+	if err != nil {
+		t.Fatalf("build agent: %v", err)
+	}
+
+	out, err := agent.Execute(context.Background(), &req{Topic: "the moon"}, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if out.Fact == "" {
+		t.Error("expected a non-empty fact")
+	}
+}
 
 func TestGoogleAIToolCallEndToEnd(t *testing.T) {
 	if os.Getenv("GOOGLE_AI_API_KEY") == "" {

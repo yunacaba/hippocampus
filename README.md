@@ -44,7 +44,7 @@ A complete, runnable version lives in [`sample/`](./sample); run it with
 | [`jsonx`](./jsonx) | Reflection-driven JSON serialization, JSON-schema generation (with `proto.Message` support), and LLM-tolerant parsing (`DeserializeLLM`: strips fences/prose, repairs malformed/truncated JSON). |
 | [`openai`](./openai) | Direct-SDK OpenAI adapter (sets the `user` field). |
 | [`anthropic`](./anthropic) | Direct-SDK Anthropic adapter (sets `metadata.user_id`). |
-| [`langchain`](./langchain) | langchaingo-backed adapter for Google AI. |
+| [`langchain`](./langchain) | langchaingo-backed adapter for Google AI and native Ollama. |
 | [`openaicompat`](./openaicompat) | Providers for OpenAI-compatible servers — local runtimes like Ollama and LM Studio. |
 | [`agenttest`](./agenttest) | Mocks: `MockModel`, `MockModelProvider`, `MockAgentObserver`, `MockToolDelegate`. |
 | [`sample`](./sample) | Runnable example. |
@@ -109,6 +109,17 @@ agent, _ := hippocampus.NewAgentWithTemplateText(tmpl, &Req{}, &Resp{}).
     SetModel(provider, hippocampus.LLMType("qwen2.5")).
     Build()
 ```
+
+For **Ollama specifically**, there is also a native-API provider in the
+[`langchain`](./langchain) package, `langchain.NewOllamaProvider(serverURL)`
+(default `http://localhost:11434`, no `/v1`). Prefer it over `openaicompat.Ollama`
+when you want to control extended thinking: `WithThinking` maps to Ollama's
+native `think` reasoning toggle, which the OpenAI-compatible endpoint does not
+expose. Note that langchaingo's reasoning detection is name-based — it enables
+thinking only for models whose name contains `deepseek-r1`, `qwq`, `reasoning`,
+or `thinking`, and it cannot send an explicit "off" (so for a model that thinks
+by default, `WithThinking()`'s absence is equivalent to leaving thinking unset,
+not to disabling it).
 
 ## Tracing and keys
 

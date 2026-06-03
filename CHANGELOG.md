@@ -7,6 +7,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Native Ollama provider in the `langchain` package.**
+  `langchain.NewOllamaProvider(serverURL)` builds models backed by langchaingo's
+  native Ollama client (the `/api/chat` API, default `http://localhost:11434`,
+  no API key). Unlike `openaicompat.Ollama` (which uses Ollama's
+  OpenAI-compatible `/v1` endpoint), this provider lets langchaingo control
+  extended thinking: `WithThinking` maps to `WithThinkingMode(Auto)` → Ollama's
+  native `think` toggle; the default maps to `WithThinkingMode(None)`.
+  langchaingo's reasoning detection is name-based (`deepseek-r1`, `qwq`,
+  `reasoning`, `thinking`) and cannot send an explicit "off". Model names are
+  arbitrary; schema enforcement is not advertised (relies on the `jsonx`
+  parser). New `LLMVendorOllama` labels these models.
+
 - **Prompt caching and extended thinking / reasoning.** New `WithPromptCaching`,
   `WithThinking`, and `WithThinkingBudget` call options:
   - Anthropic → `cache_control` on the system prompt; extended thinking via
@@ -14,7 +26,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     budget, temperature suppressed as the API requires).
   - OpenAI → reasoning effort (`reasoning_effort`) for thinking; prompt caching
     is automatic, so `WithPromptCaching` is a no-op.
-  - Google AI (langchaingo) → not supported; ignored.
+  - Google AI / Ollama (langchaingo) → thinking via `WithThinkingMode`
+    (Ollama only); prompt caching not supported.
+
+### Changed
+
+- Bumped `github.com/tmc/langchaingo` from `v0.1.14-pre.3` to `v0.1.14` (stable),
+  which introduces the `WithThinkingMode` call option.
 
 ## [0.4.0] - 2026-06-02
 

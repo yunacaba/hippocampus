@@ -82,6 +82,36 @@ func TestOptionsToLangchain(t *testing.T) {
 	}
 }
 
+func TestOptionsToLangchain_Thinking(t *testing.T) {
+	// Default (no WithThinking): mode is explicitly None.
+	off := &llms.CallOptions{}
+	for _, o := range optionsToLangchain(base.ResolveCallOptions(nil), nil) {
+		o(off)
+	}
+	if cfg := llms.GetThinkingConfig(off); cfg == nil || cfg.Mode != llms.ThinkingModeNone {
+		t.Errorf("default thinking mode: want None, got %#v", cfg)
+	}
+
+	// WithThinking: mode is Auto (langchaingo enables it for models that support it).
+	on := &llms.CallOptions{}
+	for _, o := range optionsToLangchain(base.ResolveCallOptions([]base.CallOption{base.WithThinking()}), nil) {
+		o(on)
+	}
+	if cfg := llms.GetThinkingConfig(on); cfg == nil || cfg.Mode != llms.ThinkingModeAuto {
+		t.Errorf("thinking mode: want Auto, got %#v", cfg)
+	}
+
+	// WithThinkingBudget: mode Auto and an explicit budget.
+	budget := &llms.CallOptions{}
+	for _, o := range optionsToLangchain(base.ResolveCallOptions([]base.CallOption{base.WithThinkingBudget(4096)}), nil) {
+		o(budget)
+	}
+	cfg := llms.GetThinkingConfig(budget)
+	if cfg == nil || cfg.Mode != llms.ThinkingModeAuto || cfg.BudgetTokens != 4096 {
+		t.Errorf("thinking budget: want Auto/4096, got %#v", cfg)
+	}
+}
+
 func TestOptionsToLangchain_ToolChoice(t *testing.T) {
 	// Standard mode passes through as a string.
 	mode := &llms.CallOptions{}
