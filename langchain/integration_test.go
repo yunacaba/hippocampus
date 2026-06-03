@@ -14,6 +14,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,11 +22,25 @@ import (
 	"github.com/yunacaba/hippocampus/langchain"
 )
 
-// ollamaReachable reports whether a local Ollama server answers within a short
+// ollamaBaseURL is the server the test probes/targets: OLLAMA_HOST if set
+// (normalized to a URL), else the conventional default. This mirrors how the
+// provider (with serverURL "") resolves the host.
+func ollamaBaseURL() string {
+	host := os.Getenv("OLLAMA_HOST")
+	if host == "" {
+		return langchain.OllamaServerURL
+	}
+	if !strings.Contains(host, "://") {
+		host = "http://" + host
+	}
+	return host
+}
+
+// ollamaReachable reports whether the Ollama server answers within a short
 // timeout, so the integration test can skip cleanly when one isn't running.
 func ollamaReachable() bool {
 	client := &http.Client{Timeout: 1500 * time.Millisecond}
-	resp, err := client.Get(langchain.OllamaServerURL + "/api/tags")
+	resp, err := client.Get(ollamaBaseURL() + "/api/tags")
 	if err != nil {
 		return false
 	}
@@ -35,7 +50,7 @@ func ollamaReachable() bool {
 
 func TestOllamaGenerateEndToEnd(t *testing.T) {
 	if !ollamaReachable() {
-		t.Skipf("no Ollama server reachable at %s", langchain.OllamaServerURL)
+		t.Skipf("no Ollama server reachable at %s", ollamaBaseURL())
 	}
 	model := os.Getenv("OLLAMA_TEST_MODEL")
 	if model == "" {
