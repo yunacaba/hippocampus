@@ -5,6 +5,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-06-02
+
+### Fixed
+
+- **`langchain.NewOllamaProvider` now honors `OLLAMA_HOST`.** Passing an empty
+  `serverURL` no longer pins the client to `localhost`; it leaves the server URL
+  unset so langchaingo resolves the host from the `OLLAMA_HOST` environment
+  variable (falling back to `127.0.0.1:11434`), matching plain `ollama.New()`.
+  An explicit `serverURL` is still honored verbatim. (Regression from the
+  initial provider in 0.5.0, which always set the server URL.)
+
 ## [0.5.0] - 2026-06-02
 
 ### Added

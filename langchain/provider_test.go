@@ -27,11 +27,12 @@ func TestNewOllamaProvider_BuildsModel(t *testing.T) {
 	}
 }
 
-func TestNewOllamaProvider_DefaultServerURL(t *testing.T) {
-	p := NewOllamaProvider("")
-	if p.serverURL != OllamaServerURL {
-		t.Errorf("default server URL: want %q, got %q", OllamaServerURL, p.serverURL)
+func TestNewOllamaProvider_ServerURL(t *testing.T) {
+	// Empty stays empty so langchaingo resolves OLLAMA_HOST at client init.
+	if p := NewOllamaProvider(""); p.serverURL != "" {
+		t.Errorf("empty server URL should not be defaulted, got %q", p.serverURL)
 	}
+	// An explicit URL is honored verbatim.
 	custom := NewOllamaProvider("http://ollama.internal:11434")
 	if custom.serverURL != "http://ollama.internal:11434" {
 		t.Errorf("custom server URL not honored: %q", custom.serverURL)

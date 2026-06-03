@@ -38,11 +38,18 @@ func (m *langchainModel) initClient() error {
 
 	switch m.llmVendor.String() {
 	case hippo.LLMVendorOllama.String():
-		model, err := ollama.New(
+		opts := []ollama.Option{
 			ollama.WithModel(m.llmType.String()),
-			ollama.WithServerURL(m.serverURL),
 			ollama.WithHTTPClient(httpClient),
-		)
+		}
+		// Only pin the server URL when one was given. Leaving it unset lets
+		// langchaingo resolve the host from the OLLAMA_HOST environment variable
+		// (falling back to 127.0.0.1:11434), matching the plain `ollama.New()`
+		// behavior callers rely on for remote/containerized Ollama.
+		if m.serverURL != "" {
+			opts = append(opts, ollama.WithServerURL(m.serverURL))
+		}
+		model, err := ollama.New(opts...)
 		if err != nil {
 			return fmt.Errorf("failed to create %s client: %w", m.llmVendor.String(), err)
 		}

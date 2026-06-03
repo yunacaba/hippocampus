@@ -8,9 +8,11 @@ import (
 	"github.com/yunacaba/hippocampus/base"
 )
 
-// OllamaServerURL is the default base URL for a local Ollama server's native
-// API. Note this is the native endpoint (no /v1 suffix), unlike the
+// OllamaServerURL is the conventional base URL for a local Ollama server's
+// native API. Note this is the native endpoint (no /v1 suffix), unlike the
 // openaicompat package which targets Ollama's OpenAI-compatible /v1 endpoint.
+// NewOllamaProvider does not apply it as a default — pass "" to let langchaingo
+// resolve the host from OLLAMA_HOST (which itself falls back to this address).
 const OllamaServerURL = "http://localhost:11434"
 
 // Provider is a base.ModelProvider that builds langchaingo-backed models. It
@@ -49,16 +51,14 @@ func NewProvider(keys hippo.KeyProvider, opts ...Option) *Provider {
 
 // NewOllamaProvider creates a provider for a local Ollama server, backed by
 // langchaingo's native Ollama client. serverURL is the native API base URL
-// (e.g. "http://localhost:11434", no /v1 suffix); empty defaults to
-// OllamaServerURL. No API key is required.
+// (e.g. "http://localhost:11434", no /v1 suffix). Pass "" to let langchaingo
+// resolve the host from the OLLAMA_HOST environment variable (falling back to
+// 127.0.0.1:11434), matching plain `ollama.New()`. No API key is required.
 //
 // Prefer this provider over openaicompat.Ollama when you want langchaingo to
 // control extended thinking: WithThinking maps to Ollama's native `think`
 // reasoning toggle, which the OpenAI-compatible endpoint does not expose.
 func NewOllamaProvider(serverURL string, opts ...Option) *Provider {
-	if serverURL == "" {
-		serverURL = OllamaServerURL
-	}
 	p := &Provider{
 		vendor:    hippo.LLMVendorOllama,
 		serverURL: serverURL,

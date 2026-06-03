@@ -112,7 +112,8 @@ agent, _ := hippocampus.NewAgentWithTemplateText(tmpl, &Req{}, &Resp{}).
 
 For **Ollama specifically**, there is also a native-API provider in the
 [`langchain`](./langchain) package, `langchain.NewOllamaProvider(serverURL)`
-(default `http://localhost:11434`, no `/v1`). Prefer it over `openaicompat.Ollama`
+(native endpoint, no `/v1`; pass `""` to resolve the host from `OLLAMA_HOST`,
+falling back to `127.0.0.1:11434`). Prefer it over `openaicompat.Ollama`
 when you want to control extended thinking: `WithThinking` maps to Ollama's
 native `think` reasoning toggle, which the OpenAI-compatible endpoint does not
 expose. Note that langchaingo's reasoning detection is name-based — it enables
