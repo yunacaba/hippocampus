@@ -50,11 +50,27 @@ func (m *anthropicModel) Generate(
 				span.SetAttributes(hippo.StringAttr("llm.user_id", userID))
 			}
 
+			// Decide streaming vs non-streaming. A caller-supplied StreamingFunc
+			// always streams. Otherwise, the SDK rejects a non-streaming
+			// Messages.New whose max_tokens implies a >10min run (e.g. 64k
+			// tokens → a ~30min estimate) with "streaming is required for
+			// operations that may take longer than 10 minutes". Ask the SDK's
+			// own guard: if New would be rejected, stream-and-accumulate
+			// instead (the streaming endpoint has no such limit) and return the
+			// same fully-accumulated message. Using the SDK function keeps this
+			// in lockstep with whatever threshold the SDK enforces.
+			useStreaming := request.StreamingFunc != nil
+			if !useStreaming {
+				if _, terr := sdk.CalculateNonStreamingTimeout(int(params.MaxTokens), params.Model, nil); terr != nil {
+					useStreaming = true
+				}
+			}
+
 			var (
 				message *sdk.Message
 				err     error
 			)
-			if request.StreamingFunc != nil {
+			if useStreaming {
 				message, err = m.generateStreaming(ctx, span, params, metrics, request.StreamingFunc)
 			} else {
 				message, err = m.client.Messages.New(ctx, params)
@@ -90,8 +106,11 @@ func (m *anthropicModel) Generate(
 }
 
 // generateStreaming consumes the SSE stream, forwarding text deltas to the
-// streaming function and recording time-to-first-token, then returns the fully
-// accumulated message.
+// streaming function (when non-nil) and recording time-to-first-token, then
+// returns the fully accumulated message. A nil streamingFunc is valid: the
+// adapter always streams to avoid the SDK's non-streaming 10-minute guard, so
+// non-streaming callers run this path too and simply receive the accumulated
+// result without per-delta callbacks.
 func (m *anthropicModel) generateStreaming(
 	ctx context.Context,
 	span hippo.Span,
@@ -115,7 +134,7 @@ func (m *anthropicModel) generateStreaming(
 		if text != "" || event.Delta.PartialJSON != "" {
 			hippo.MarkFirstToken(span, metrics, len(text))
 		}
-		if text != "" {
+		if text != "" && streamingFunc != nil {
 			if err := streamingFunc(ctx, []byte(text)); err != nil {
 				return nil, err
 			}
