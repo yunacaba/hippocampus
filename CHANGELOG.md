@@ -5,6 +5,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-06-08
+
+### Fixed
+
+- **Anthropic: stream-and-accumulate when `max_tokens` requires it.** The SDK
+  rejects a non-streaming `Messages.New` whose `max_tokens` implies a run over
+  10 minutes (e.g. 64k tokens → a ~30min estimate) with "streaming is required
+  for operations that may take longer than 10 minutes". The adapter now
+  consults the SDK's own guard (`CalculateNonStreamingTimeout`) and, when a
+  plain `New` would be rejected, streams internally and returns the fully
+  accumulated message — even when the caller passed no streaming function.
+  Ordinary `max_tokens` still uses `Messages.New`, so latency is unchanged.
+
 ## [0.5.1] - 2026-06-02
 
 ### Fixed
