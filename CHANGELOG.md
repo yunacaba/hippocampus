@@ -5,6 +5,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-15
+
+### Added
+
+- **Anthropic prompt-cache token counts in metrics.** `base.ModelCallMetrics`
+  now carries `CacheReadInputTokens` and `CacheCreationInputTokens`, populated
+  from the Anthropic response (`message.Usage`). The adapter previously read
+  only `InputTokens`/`OutputTokens` and dropped the cache fields, so consumers
+  couldn't observe prompt-cache effectiveness even with `cache_control` set.
+  Also surfaced in the langchain-bridge `GenerationInfo` for parity. Note:
+  Anthropic's `InputTokens` excludes cache reads, so total prompt size is
+  `InputTokens + CacheReadInputTokens + CacheCreationInputTokens`. The fields
+  are zero for providers without prompt caching, so the change is additive and
+  backward-compatible.
+
 ## [0.5.2] - 2026-06-08
 
 ### Fixed
