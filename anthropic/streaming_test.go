@@ -116,3 +116,67 @@ func TestSmallMaxTokensStaysNonStreaming(t *testing.T) {
 		t.Errorf("small max_tokens must not force streaming; body: %s", transport.body)
 	}
 }
+
+// cacheTokenTransport replies with an SSE stream whose message_start carries
+// prompt-cache usage (Anthropic reports cache_read/cache_creation in
+// message_start; only output_tokens arrives via message_delta).
+type cacheTokenTransport struct{}
+
+func (cacheTokenTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	const sse = "event: message_start\n" +
+		`data: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-4-5-20251001","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":120,"output_tokens":0,"cache_read_input_tokens":800,"cache_creation_input_tokens":50}}}` + "\n\n" +
+		"event: content_block_start\n" +
+		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}` + "\n\n" +
+		"event: content_block_delta\n" +
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}` + "\n\n" +
+		"event: content_block_stop\n" +
+		`data: {"type":"content_block_stop","index":0}` + "\n\n" +
+		"event: message_delta\n" +
+		`data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":40}}` + "\n\n" +
+		"event: message_stop\n" +
+		`data: {"type":"message_stop"}` + "\n\n"
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       io.NopCloser(bytes.NewBufferString(sse)),
+		Request:    req,
+	}, nil
+}
+
+// TestGenerateSurfacesCacheTokensInMetrics asserts the streaming-accumulation
+// path carries Anthropic's cache token counts onto resp.Metrics — the surface
+// downstream consumers read.
+func TestGenerateSurfacesCacheTokensInMetrics(t *testing.T) {
+	provider := anthropic.NewProvider(
+		staticKeyProvider{key: "test-key"},
+		anthropic.WithRequestOptions(option.WithHTTPClient(&http.Client{Transport: cacheTokenTransport{}})),
+	)
+	model, err := provider.Model("cache_test", hippo.AnthropicClaudeHaiku45)
+	if err != nil {
+		t.Fatalf("build model: %v", err)
+	}
+
+	// Large max_tokens forces the internal streaming path.
+	resp, err := model.Generate(context.Background(), base.ModelCallRequest{
+		Messages: []base.Message{{Role: base.RoleUser, Parts: []base.ContentPart{base.TextPart{Text: "hi"}}}},
+		Options:  []base.CallOption{base.WithMaxTokens(64000)},
+	})
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	if resp.Metrics == nil {
+		t.Fatal("resp.Metrics is nil")
+	}
+	if resp.Metrics.InputTokens != 120 {
+		t.Errorf("InputTokens = %d, want 120", resp.Metrics.InputTokens)
+	}
+	if resp.Metrics.OutputTokens != 40 {
+		t.Errorf("OutputTokens = %d, want 40", resp.Metrics.OutputTokens)
+	}
+	if resp.Metrics.CacheReadInputTokens != 800 {
+		t.Errorf("CacheReadInputTokens = %d, want 800", resp.Metrics.CacheReadInputTokens)
+	}
+	if resp.Metrics.CacheCreationInputTokens != 50 {
+		t.Errorf("CacheCreationInputTokens = %d, want 50", resp.Metrics.CacheCreationInputTokens)
+	}
+}
