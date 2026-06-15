@@ -133,3 +133,28 @@ func TestApplyOptions_ResponseSchemaSkippedWithRealTools(t *testing.T) {
 		t.Errorf("output tool should not be forced when real tools are present: %s", s)
 	}
 }
+
+func TestResponseFromAnthropic_SurfacesCacheTokens(t *testing.T) {
+	msg := &sdk.Message{
+		StopReason: "end_turn",
+		Content:    []sdk.ContentBlockUnion{{Type: "text", Text: "hi"}},
+		Usage: sdk.Usage{
+			InputTokens:              120,
+			OutputTokens:             40,
+			CacheReadInputTokens:     800,
+			CacheCreationInputTokens: 50,
+		},
+	}
+
+	resp := responseFromAnthropic(msg)
+
+	if got := resp.GenerationInfo["InputTokens"]; got != 120 {
+		t.Errorf("InputTokens = %v, want 120", got)
+	}
+	if got := resp.GenerationInfo["CacheReadInputTokens"]; got != 800 {
+		t.Errorf("CacheReadInputTokens = %v, want 800", got)
+	}
+	if got := resp.GenerationInfo["CacheCreationInputTokens"]; got != 50 {
+		t.Errorf("CacheCreationInputTokens = %v, want 50", got)
+	}
+}
