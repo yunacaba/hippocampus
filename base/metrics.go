@@ -16,6 +16,16 @@ type ModelCallMetrics struct {
 	OutputTokens int
 	PromptLength int
 	MessageCount int
+
+	// Prompt-cache accounting (Anthropic). CacheReadInputTokens is the
+	// portion of the prompt served from cache (billed at a fraction of input
+	// cost); CacheCreationInputTokens is the portion written to cache. Both
+	// are reported separately from InputTokens, which counts only the
+	// freshly-processed (uncached) input — so the total prompt size is
+	// InputTokens + CacheReadInputTokens + CacheCreationInputTokens. Zero for
+	// providers without prompt caching.
+	CacheReadInputTokens     int
+	CacheCreationInputTokens int
 }
 
 // ModelToolCallMetrics holds performance metrics for a single tool call.

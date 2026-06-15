@@ -211,8 +211,10 @@ func responseFromAnthropic(msg *sdk.Message) *base.ModelCallResponse {
 		StopReason: string(msg.StopReason),
 		ToolCalls:  toolCalls,
 		GenerationInfo: map[string]any{
-			"InputTokens":  int(msg.Usage.InputTokens),
-			"OutputTokens": int(msg.Usage.OutputTokens),
+			"InputTokens":              int(msg.Usage.InputTokens),
+			"OutputTokens":             int(msg.Usage.OutputTokens),
+			"CacheReadInputTokens":     int(msg.Usage.CacheReadInputTokens),
+			"CacheCreationInputTokens": int(msg.Usage.CacheCreationInputTokens),
 		},
 	}
 }

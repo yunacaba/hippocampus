@@ -99,6 +99,8 @@ func (m *anthropicModel) Generate(
 			if message != nil {
 				metrics.InputTokens = int(message.Usage.InputTokens)
 				metrics.OutputTokens = int(message.Usage.OutputTokens)
+				metrics.CacheReadInputTokens = int(message.Usage.CacheReadInputTokens)
+				metrics.CacheCreationInputTokens = int(message.Usage.CacheCreationInputTokens)
 				metrics.ResponseLength = len(resp.Content)
 			}
 			return resp, nil
