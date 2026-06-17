@@ -35,6 +35,15 @@ type ContentPart interface {
 // TextPart is plain text content.
 type TextPart struct {
 	Text string
+	// CacheBreakpoint, when true, marks this block as a prompt-cache breakpoint
+	// (Anthropic cache_control: ephemeral). The cached prefix is everything up to
+	// and including this block, so a later request whose prefix is byte-identical
+	// up to here is a cache hit. Honored for user/assistant message content
+	// blocks; system-prompt caching uses WithPromptCaching instead. No-op for
+	// providers without prompt caching. The caller is responsible for Anthropic's
+	// limits (≤4 breakpoints; the cached prefix must meet the model's token
+	// minimum — 1024 for Sonnet, 2048 for Haiku).
+	CacheBreakpoint bool
 }
 
 func (TextPart) isContentPart()   {}
@@ -82,17 +91,18 @@ func (ToolResultPart) partType() string { return "tool_result" }
 // partEnvelope is the wire form of a ContentPart: a flat object with a "type"
 // discriminator and the union of all part fields. Empty fields are omitted.
 type partEnvelope struct {
-	Type       string `json:"type"`
-	Text       string `json:"text,omitempty"`
-	URL        string `json:"url,omitempty"`
-	Detail     string `json:"detail,omitempty"`
-	MIMEType   string `json:"mime_type,omitempty"`
-	Data       []byte `json:"data,omitempty"`
-	ToolCallID string `json:"tool_call_id,omitempty"`
-	Name       string `json:"name,omitempty"`
-	Arguments  string `json:"arguments,omitempty"`
-	Content    string `json:"content,omitempty"`
-	IsError    bool   `json:"is_error,omitempty"`
+	Type            string `json:"type"`
+	Text            string `json:"text,omitempty"`
+	CacheBreakpoint bool   `json:"cache_breakpoint,omitempty"`
+	URL             string `json:"url,omitempty"`
+	Detail          string `json:"detail,omitempty"`
+	MIMEType        string `json:"mime_type,omitempty"`
+	Data            []byte `json:"data,omitempty"`
+	ToolCallID      string `json:"tool_call_id,omitempty"`
+	Name            string `json:"name,omitempty"`
+	Arguments       string `json:"arguments,omitempty"`
+	Content         string `json:"content,omitempty"`
+	IsError         bool   `json:"is_error,omitempty"`
 }
 
 // messageJSON is the wire form of a Message.
@@ -110,6 +120,7 @@ func (m Message) MarshalJSON() ([]byte, error) {
 		switch v := p.(type) {
 		case TextPart:
 			env.Text = v.Text
+			env.CacheBreakpoint = v.CacheBreakpoint
 		case ImagePart:
 			env.URL = v.URL
 			env.Detail = v.Detail
@@ -146,7 +157,7 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 		var part ContentPart
 		switch env.Type {
 		case "text":
-			part = TextPart{Text: env.Text}
+			part = TextPart{Text: env.Text, CacheBreakpoint: env.CacheBreakpoint}
 		case "image":
 			part = ImagePart{URL: env.URL, Detail: env.Detail}
 		case "binary":
