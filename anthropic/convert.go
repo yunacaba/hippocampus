@@ -45,7 +45,15 @@ func messageToAnthropic(msg base.Message) sdk.MessageParam {
 	for _, part := range msg.Parts {
 		switch p := part.(type) {
 		case base.TextPart:
-			blocks = append(blocks, sdk.NewTextBlock(p.Text))
+			if p.CacheBreakpoint {
+				// Mark this block as a prompt-cache breakpoint (cache_control:
+				// ephemeral) so the prefix up to and including it is cached.
+				variant := sdk.TextBlockParam{Text: p.Text}
+				variant.CacheControl = sdk.NewCacheControlEphemeralParam()
+				blocks = append(blocks, sdk.ContentBlockParamUnion{OfText: &variant})
+			} else {
+				blocks = append(blocks, sdk.NewTextBlock(p.Text))
+			}
 		case base.ImagePart:
 			blocks = append(blocks, sdk.NewImageBlock(sdk.URLImageSourceParam{URL: p.URL}))
 		case base.ToolCallPart:

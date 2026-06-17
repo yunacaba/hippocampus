@@ -64,6 +64,32 @@ func TestMultiPartMessageRoundTrip(t *testing.T) {
 	}
 }
 
+// TestTextPartCacheBreakpointRoundTrip verifies the CacheBreakpoint flag
+// survives JSON serialization.
+func TestTextPartCacheBreakpointRoundTrip(t *testing.T) {
+	original := Message{
+		Role: RoleUser,
+		Parts: []ContentPart{
+			TextPart{Text: "shared node content", CacheBreakpoint: true},
+			TextPart{Text: "agent-specific instructions"},
+		},
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var got Message
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if !reflect.DeepEqual(original, got) {
+		t.Fatalf("round-trip mismatch\n  want: %#v\n  got:  %#v\n  json: %s", original, got, data)
+	}
+}
+
 // TestUnknownPartTypeRejected ensures decoding fails on an unknown discriminator.
 func TestUnknownPartTypeRejected(t *testing.T) {
 	var m Message

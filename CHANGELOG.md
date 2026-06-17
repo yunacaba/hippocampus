@@ -3,7 +3,17 @@
 All notable changes to this project are documented here. This project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2026-06-17
+
+### Added
+
+- **Per-block prompt-cache breakpoints.** `base.TextPart` gains a
+  `CacheBreakpoint bool`. When set, the Anthropic provider marks that content
+  block with `cache_control: ephemeral`, so the prefix up to and including it is
+  cached — enabling caching of a shared *user-turn* prefix (e.g. document content
+  reused across calls), not just the system block (`WithPromptCaching`). No-op
+  for providers without prompt caching; the caller owns Anthropic's limits
+  (≤4 breakpoints; ≥1024-token Sonnet / 2048 Haiku minimum prefix).
 
 ## [0.6.0] - 2026-06-15
 

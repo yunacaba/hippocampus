@@ -158,3 +158,71 @@ func TestResponseFromAnthropic_SurfacesCacheTokens(t *testing.T) {
 		t.Errorf("CacheCreationInputTokens = %v, want 50", got)
 	}
 }
+
+func TestMessageToAnthropic_CacheBreakpointMarksBlock(t *testing.T) {
+	msg := base.Message{Role: base.RoleUser, Parts: []base.ContentPart{
+		base.TextPart{Text: "shared node content", CacheBreakpoint: true},
+		base.TextPart{Text: "agent-specific instructions"},
+	}}
+
+	b, err := json.Marshal(messageToAnthropic(msg))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if n := strings.Count(string(b), `"cache_control"`); n != 1 {
+		t.Errorf("expected exactly one cache_control breakpoint, got %d: %s", n, b)
+	}
+}
+
+func TestMessageToAnthropic_NoBreakpointNoCacheControl(t *testing.T) {
+	msg := base.Message{Role: base.RoleUser, Parts: []base.ContentPart{
+		base.TextPart{Text: "plain content"},
+	}}
+
+	b, err := json.Marshal(messageToAnthropic(msg))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(b), `"cache_control"`) {
+		t.Errorf("did not expect cache_control without a breakpoint: %s", b)
+	}
+}
+
+// TestMessageToAnthropic_BreakpointOnIntendedBlockOnly proves the breakpoint
+// attaches to the marked block (here the 2nd), not block 0.
+func TestMessageToAnthropic_BreakpointOnIntendedBlockOnly(t *testing.T) {
+	msg := base.Message{Role: base.RoleUser, Parts: []base.ContentPart{
+		base.TextPart{Text: "plain first block"},
+		base.TextPart{Text: "cached second block", CacheBreakpoint: true},
+	}}
+
+	out := messageToAnthropic(msg)
+	if len(out.Content) != 2 {
+		t.Fatalf("expected 2 content blocks, got %d", len(out.Content))
+	}
+	block0, _ := json.Marshal(out.Content[0])
+	block1, _ := json.Marshal(out.Content[1])
+	if strings.Contains(string(block0), "cache_control") {
+		t.Errorf("block 0 (no breakpoint) must not carry cache_control: %s", block0)
+	}
+	if !strings.Contains(string(block1), "cache_control") {
+		t.Errorf("block 1 (breakpoint) must carry cache_control: %s", block1)
+	}
+}
+
+// TestMessageToAnthropic_MultipleBreakpoints proves the converter emits one
+// cache_control per breakpoint (enforcing Anthropic's <=4 limit is the API's job).
+func TestMessageToAnthropic_MultipleBreakpoints(t *testing.T) {
+	msg := base.Message{Role: base.RoleUser, Parts: []base.ContentPart{
+		base.TextPart{Text: "first", CacheBreakpoint: true},
+		base.TextPart{Text: "second", CacheBreakpoint: true},
+	}}
+
+	b, err := json.Marshal(messageToAnthropic(msg))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if n := strings.Count(string(b), `"cache_control"`); n != 2 {
+		t.Errorf("expected 2 cache_control breakpoints, got %d: %s", n, b)
+	}
+}
