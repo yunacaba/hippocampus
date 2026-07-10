@@ -23,6 +23,7 @@ type Provider struct {
 	vendor    base.LLMVendor
 	keys      hippo.KeyProvider // Google AI only
 	serverURL string            // Ollama only
+	numCtx    int               // Ollama only; 0 = auto-size to the model
 	tracer    hippo.Tracer
 }
 
@@ -34,6 +35,15 @@ type Option func(*Provider)
 // WithTracer sets the tracer used for model spans. The default is a no-op tracer.
 func WithTracer(tracer hippo.Tracer) Option {
 	return func(p *Provider) { p.tracer = tracer }
+}
+
+// WithOllamaNumCtx pins the Ollama context window (num_ctx) to n tokens.
+// Ollama-only; ignored by the Google AI provider. When unset (or n <= 0) the
+// window is auto-sized to the model's trained context length (queried from
+// /api/show), capped for memory safety. Set this to force a specific window —
+// e.g. to exceed the cap, or to pin a value for reproducible runs.
+func WithOllamaNumCtx(n int) Option {
+	return func(p *Provider) { p.numCtx = n }
 }
 
 // NewProvider creates a Google AI model provider backed by langchaingo.
@@ -81,6 +91,7 @@ func (p *Provider) Model(name string, llmType base.LLMType) (base.Model, error) 
 		llmType:   llmType,
 		llmVendor: p.vendor,
 		serverURL: p.serverURL,
+		numCtx:    p.numCtx,
 		tracer:    p.tracer,
 	}
 
