@@ -23,6 +23,7 @@ type langchainModel struct {
 	llmVendor base.LLMVendor
 	apiKey    string // Google AI
 	serverURL string // Ollama
+	numCtx    int    // Ollama context window; 0 = auto-size to the model
 	tracer    hippo.Tracer
 	model     llms.Model
 }
@@ -38,9 +39,15 @@ func (m *langchainModel) initClient() error {
 
 	switch m.llmVendor.String() {
 	case hippo.LLMVendorOllama.String():
+		// Size the context window to the model instead of Ollama's 2048
+		// default, which silently truncates prompts longer than a couple
+		// thousand tokens. numCtx == 0 means auto (query the model); a
+		// caller-supplied value via WithOllamaNumCtx wins.
+		numCtx := resolveOllamaNumCtx(m.llmType.String(), m.serverURL, m.numCtx)
 		opts := []ollama.Option{
 			ollama.WithModel(m.llmType.String()),
 			ollama.WithHTTPClient(httpClient),
+			ollama.WithRunnerNumCtx(numCtx),
 		}
 		// Only pin the server URL when one was given. Leaving it unset lets
 		// langchaingo resolve the host from the OLLAMA_HOST environment variable
