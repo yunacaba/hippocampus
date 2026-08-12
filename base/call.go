@@ -209,7 +209,10 @@ type ModelCallResponse struct {
 // The value is opaque and vendor-scoped. It describes the call, not the
 // caller, and is absent for vendors that report no such id.
 //
-// It is reported on success only. A failed call's id is on the error — the
-// Anthropic SDK's apierror.Error carries RequestID directly, and the wrapping
-// here preserves errors.As.
+// Reported on success. A failed call's id is not lost: an API error carries it
+// on the error itself — the Anthropic SDK's exported anthropic.Error has a
+// RequestID field, reachable through errors.As because the wrapping here uses
+// %w — and a failure that arrives after the response, such as a mid-stream
+// connection drop, is a transport error with no such field, so the id is
+// recorded on the call's span instead.
 const GenerationInfoRequestID = "RequestID"

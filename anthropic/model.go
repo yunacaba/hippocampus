@@ -77,11 +77,6 @@ func (m *anthropicModel) Generate(
 			// is shared across concurrent calls, so a single shared destination
 			// would race and hand a caller another call's id — worse than none,
 			// since this value's whole purpose is correlating one specific call.
-			//
-			// The SDK assigns this even when the request failed, but the error
-			// path below returns before reading it: on failure the id is already
-			// on the error itself (apierror.Error.RequestID), and reporting it
-			// twice by different routes invites the two to disagree.
 			var httpResp *http.Response
 			capture := option.WithResponseInto(&httpResp)
 
@@ -94,15 +89,32 @@ func (m *anthropicModel) Generate(
 			} else {
 				message, err = m.client.Messages.New(ctx, params, capture)
 			}
+
+			// On the span before the error check, so the id survives a call that
+			// failed after its response arrived. That case reports it nowhere
+			// else: a mid-stream connection drop is a transport error rather
+			// than an sdk.Error, so it carries no RequestID, and returning below
+			// skips GenerationInfo. It is also the case most worth correlating —
+			// a managed-analysis run that streams for twenty minutes, spends
+			// tokens, and then dies.
+			//
+			// The span rather than the error, because this is one route to one
+			// surface: an investigator looking at a failed call is already here,
+			// and wrapping the id into the error would make its type depend on
+			// how the call failed.
+			requestID := responseRequestID(httpResp)
+			if requestID != "" {
+				span.SetAttributes(hippo.StringAttr("llm.request_id", requestID))
+			}
+
 			if err != nil {
 				return nil, err
 			}
 
 			resp := responseFromAnthropic(message)
 
-			if requestID := responseRequestID(httpResp); requestID != "" {
+			if requestID != "" {
 				resp.GenerationInfo[base.GenerationInfoRequestID] = requestID
-				span.SetAttributes(hippo.StringAttr("llm.request_id", requestID))
 			}
 
 			// Structured output via forced tool: lift the synthetic tool's input

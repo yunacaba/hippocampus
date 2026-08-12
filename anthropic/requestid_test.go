@@ -3,10 +3,13 @@ package anthropic_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"testing"
+	"testing/iotest"
 
+	sdk "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	hippo "github.com/yunacaba/hippocampus"
@@ -66,7 +69,7 @@ func (tr *requestIDTransport) RoundTrip(req *http.Request) (*http.Response, erro
 	}, nil
 }
 
-func requestIDModel(t *testing.T, tr *requestIDTransport) base.Model {
+func requestIDModel(t *testing.T, tr http.RoundTripper) base.Model {
 	t.Helper()
 	provider := anthropic.NewProvider(
 		staticKeyProvider{key: "test-key"},
@@ -140,6 +143,130 @@ func TestGenerateOmitsAnAbsentRequestID(t *testing.T) {
 	// the missing field rather than a swallowed response.
 	if _, ok := resp.GenerationInfo["InputTokens"]; !ok {
 		t.Error("token counts went missing alongside the absent request id")
+	}
+}
+
+// nullBodyTransport returns a 200 whose JSON body is `null`, which the SDK
+// decodes into a nil *Message with no error — the shape the two `message !=
+// nil` guards in Generate already anticipate.
+type nullBodyTransport struct{ requestID string }
+
+func (tr *nullBodyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	header := http.Header{"Content-Type": []string{"application/json"}}
+	if tr.requestID != "" {
+		header.Set("request-id", tr.requestID)
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     header,
+		Body:       io.NopCloser(bytes.NewBufferString("null")),
+		Request:    req,
+	}, nil
+}
+
+// A response carrying no message must not panic, and must still report the id.
+//
+// responseFromAnthropic returns a zero ModelCallResponse for a nil message,
+// whose GenerationInfo is nil rather than empty — so writing a key into it
+// panics, taking down an unrelated caller's request. Generate guards
+// `message != nil` twice for this case, so the path is treated as reachable by
+// code that predates request-id reporting.
+func TestGenerateSurvivesAResponseWithNoMessage(t *testing.T) {
+	tr := &nullBodyTransport{requestID: "req_011CQnull"}
+
+	resp, err := requestIDModel(t, tr).Generate(context.Background(), userReq())
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("nil response")
+	}
+	if resp.GenerationInfo == nil {
+		t.Fatal("GenerationInfo is nil; a returned map must be writable by the next caller too")
+	}
+	if got := resp.GenerationInfo[base.GenerationInfoRequestID]; got != "req_011CQnull" {
+		t.Errorf("request id = %v, want req_011CQnull", got)
+	}
+}
+
+// recordingTracer captures span attributes so a test can assert what an
+// investigator would find on a failed call.
+type recordingTracer struct{ span *recordingSpan }
+
+func (t *recordingTracer) StartSpan(ctx context.Context, _ string) (context.Context, hippo.Span) {
+	return ctx, t.span
+}
+
+type recordingSpan struct{ attrs map[string]any }
+
+func (s *recordingSpan) End() {}
+func (s *recordingSpan) SetAttributes(attrs ...hippo.Attribute) {
+	for _, a := range attrs {
+		s.attrs[a.Key] = a.Value
+	}
+}
+func (s *recordingSpan) AddEvent(string, ...hippo.Attribute) {}
+func (s *recordingSpan) RecordError(error)                   {}
+
+// brokenStreamTransport answers with headers and then fails the body read: the
+// response arrived, the call did not finish.
+type brokenStreamTransport struct{ requestID string }
+
+func (tr *brokenStreamTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	header := http.Header{"Content-Type": []string{"text/event-stream"}}
+	header.Set("request-id", tr.requestID)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     header,
+		Body:       io.NopCloser(iotest.ErrReader(errors.New("connection reset by peer"))),
+		Request:    req,
+	}, nil
+}
+
+// A call that fails *after* its response arrived still reports the id.
+//
+// This is the gap between the two obvious cases. Success puts the id in
+// GenerationInfo; an API error carries it on sdk.Error. A mid-stream
+// connection drop is neither — it is a transport error with no RequestID, and
+// Generate returns before GenerationInfo is built — so the id would be
+// received and then discarded.
+//
+// It is also the case most worth correlating: a managed-analysis run that
+// streams for twenty minutes, spends tokens, and dies.
+func TestGenerateReportsTheRequestIDWhenTheCallFailsAfterTheResponse(t *testing.T) {
+	span := &recordingSpan{attrs: map[string]any{}}
+	provider := anthropic.NewProvider(
+		staticKeyProvider{key: "test-key"},
+		anthropic.WithTracer(&recordingTracer{span: span}),
+		anthropic.WithRequestOptions(option.WithHTTPClient(&http.Client{
+			Transport: &brokenStreamTransport{requestID: "req_011CQdrop"},
+		})),
+	)
+	model, err := provider.Model("requestid_test", hippo.AnthropicClaudeHaiku45)
+	if err != nil {
+		t.Fatalf("build model: %v", err)
+	}
+
+	req := userReq()
+	req.StreamingFunc = func(context.Context, []byte) error { return nil }
+
+	_, err = model.Generate(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected the broken stream to fail the call")
+	}
+
+	// The gap, asserted rather than assumed: this failure is a transport error,
+	// so the error route carries no RequestID and the span is the only one left.
+	// If the SDK ever starts wrapping transport failures as sdk.Error, this
+	// fails and the reasoning above needs revisiting.
+	var apiErr *sdk.Error
+	if errors.As(err, &apiErr) {
+		t.Fatalf("expected a transport error; got an sdk.Error carrying RequestID %q, "+
+			"which would make the span a second route rather than the only one", apiErr.RequestID)
+	}
+
+	if got := span.attrs["llm.request_id"]; got != "req_011CQdrop" {
+		t.Errorf("llm.request_id = %v, want req_011CQdrop — the id arrived and was discarded", got)
 	}
 }
 

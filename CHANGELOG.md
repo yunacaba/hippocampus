@@ -17,9 +17,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   than client-wide middleware, since the client is shared across concurrent
   calls and a shared destination would race. Absent when the header is (a proxy
   may strip it); the key is omitted rather than set empty, so "no id" stays
-  distinguishable from an id worth looking up. Failed calls are unchanged and
-  already carry the id on the error itself (`apierror.Error.RequestID`), which
-  the error wrapping here preserves for `errors.As`.
+  distinguishable from an id worth looking up.
+
+  Failed calls report it too, by a route chosen by how they failed. An API error
+  already carries it on the error itself — the exported `anthropic.Error` has a
+  `RequestID` field, reachable via `errors.As` because the wrapping here uses
+  `%w`. A failure arriving *after* the response, such as a mid-stream connection
+  drop, is a transport error with no such field, so the id is recorded on the
+  call's span instead. That last case is the one worth naming: a long streaming
+  run that spends tokens and then dies is both the most expensive to leave
+  uncorrelated and the most likely to fail this way.
 
 ## [0.7.0] - 2026-06-17
 

@@ -26,9 +26,13 @@ func TestResponseRequestIDToleratesAMissingResponse(t *testing.T) {
 
 func TestResponseRequestIDIsCaseInsensitive(t *testing.T) {
 	// Anthropic sends it lowercase; HTTP header names are case-insensitive and
-	// Go canonicalizes on both Set and Get. Pinned so a future rewrite to a
-	// direct map index — which does not canonicalize — fails here rather than
-	// silently reporting nothing in production.
+	// Go canonicalizes on Set, on parse, and on Get.
+	//
+	// What this pins, precisely: a rewrite to a direct map index keyed by a
+	// *non-canonical* literal — resp.Header["request-id"], the spelling the wire
+	// uses and therefore the tempting one — returns nothing, because the parsed
+	// map is keyed canonically. Indexing with the canonical constant would still
+	// work; this is not a claim that Get is the only correct form.
 	resp := &http.Response{Header: http.Header{}}
 	resp.Header.Set("request-id", "req_011CQcase")
 
