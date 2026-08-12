@@ -28,6 +28,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   run that spends tokens and then dies is both the most expensive to leave
   uncorrelated and the most likely to fail this way.
 
+### Fixed
+
+- **A returned `GenerationInfo` is never nil.** Every adapter's empty-response
+  path returned a `ModelCallResponse` with a nil `GenerationInfo`, and the
+  langchain adapter additionally forwarded langchaingo's own nil whenever the
+  underlying provider set none. A nil map reads fine and panics on the first
+  write, so a caller adding a key — as request-id reporting now does — crashed
+  on a response shape nothing else complained about. `base.ModelCallResponse`
+  documents the invariant and `base.WritableGenerationInfo` is how adapters
+  honour it.
+
 ## [0.7.0] - 2026-06-17
 
 ### Added
