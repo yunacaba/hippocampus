@@ -196,3 +196,23 @@ type ModelCallResponse struct {
 	// Metrics holds performance metrics for the call.
 	Metrics *ModelCallMetrics
 }
+
+// GenerationInfoRequestID is the GenerationInfo key under which a vendor's own
+// identifier for a call is reported, when the vendor supplies one. Anthropic
+// sends it as the Request-Id response header.
+//
+// A named constant rather than a bare string because this value crosses a repo
+// boundary and is used for correlation: a provider support or trust & safety
+// notice cites this id and nothing else, so a typo on either side produces
+// silence rather than a compile error.
+//
+// The value is opaque and vendor-scoped. It describes the call, not the
+// caller, and is absent for vendors that report no such id.
+//
+// Reported on success. A failed call's id is not lost: an API error carries it
+// on the error itself — the Anthropic SDK's exported anthropic.Error has a
+// RequestID field, reachable through errors.As because the wrapping here uses
+// %w — and a failure that arrives after the response, such as a mid-stream
+// connection drop, is a transport error with no such field, so the id is
+// recorded on the call's span instead.
+const GenerationInfoRequestID = "RequestID"

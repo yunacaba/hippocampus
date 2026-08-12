@@ -2,12 +2,18 @@ package anthropic
 
 import (
 	"context"
+	"net/http"
 
 	sdk "github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/option"
 
 	hippo "github.com/yunacaba/hippocampus"
 	"github.com/yunacaba/hippocampus/base"
 )
+
+// requestIDHeader is Anthropic's per-call identifier. Sent lowercase on the
+// wire; named canonically here because http.Header.Get canonicalizes.
+const requestIDHeader = "Request-Id"
 
 // anthropicModel is a base.Model backed by the official Anthropic Go SDK. It
 // forwards the end-user account ID set via hippocampus.WithUserID as the
@@ -66,20 +72,50 @@ func (m *anthropicModel) Generate(
 				}
 			}
 
+			// Capture the HTTP response so the call's Request-Id can be
+			// reported. Per-call rather than client-wide middleware: the client
+			// is shared across concurrent calls, so a single shared destination
+			// would race and hand a caller another call's id — worse than none,
+			// since this value's whole purpose is correlating one specific call.
+			var httpResp *http.Response
+			capture := option.WithResponseInto(&httpResp)
+
 			var (
 				message *sdk.Message
 				err     error
 			)
 			if useStreaming {
-				message, err = m.generateStreaming(ctx, span, params, metrics, request.StreamingFunc)
+				message, err = m.generateStreaming(ctx, span, params, metrics, request.StreamingFunc, capture)
 			} else {
-				message, err = m.client.Messages.New(ctx, params)
+				message, err = m.client.Messages.New(ctx, params, capture)
 			}
+
+			// On the span before the error check, so the id survives a call that
+			// failed after its response arrived. That case reports it nowhere
+			// else: a mid-stream connection drop is a transport error rather
+			// than an sdk.Error, so it carries no RequestID, and returning below
+			// skips GenerationInfo. It is also the case most worth correlating —
+			// a managed-analysis run that streams for twenty minutes, spends
+			// tokens, and then dies.
+			//
+			// The span rather than the error, because this is one route to one
+			// surface: an investigator looking at a failed call is already here,
+			// and wrapping the id into the error would make its type depend on
+			// how the call failed.
+			requestID := responseRequestID(httpResp)
+			if requestID != "" {
+				span.SetAttributes(hippo.StringAttr("llm.request_id", requestID))
+			}
+
 			if err != nil {
 				return nil, err
 			}
 
 			resp := responseFromAnthropic(message)
+
+			if requestID != "" {
+				resp.GenerationInfo[base.GenerationInfoRequestID] = requestID
+			}
 
 			// Structured output via forced tool: lift the synthetic tool's input
 			// (which is the schema-conformant JSON) into Content, and drop it from
@@ -107,6 +143,20 @@ func (m *anthropicModel) Generate(
 		})
 }
 
+// responseRequestID reads Anthropic's per-call identifier from a response,
+// tolerating the absence of either.
+//
+// A missing header is ordinary rather than exceptional: a proxy may strip it,
+// and a test transport is unlikely to invent one. It is reported when present
+// and omitted when not, because an empty string recorded as an id would be
+// indistinguishable, downstream, from a call that reported one.
+func responseRequestID(resp *http.Response) string {
+	if resp == nil {
+		return ""
+	}
+	return resp.Header.Get(requestIDHeader)
+}
+
 // generateStreaming consumes the SSE stream, forwarding text deltas to the
 // streaming function (when non-nil) and recording time-to-first-token, then
 // returns the fully accumulated message. A nil streamingFunc is valid: the
@@ -119,8 +169,9 @@ func (m *anthropicModel) generateStreaming(
 	params sdk.MessageNewParams,
 	metrics *base.ModelCallMetrics,
 	streamingFunc func(ctx context.Context, chunk []byte) error,
+	opts ...option.RequestOption,
 ) (*sdk.Message, error) {
-	stream := m.client.Messages.NewStreaming(ctx, params)
+	stream := m.client.Messages.NewStreaming(ctx, params, opts...)
 	defer stream.Close()
 
 	var message sdk.Message

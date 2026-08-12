@@ -194,7 +194,11 @@ func applyOptions(params *sdk.MessageNewParams, co base.CallOptions) {
 // responseFromAnthropic converts an Anthropic message into an owned response.
 func responseFromAnthropic(msg *sdk.Message) *base.ModelCallResponse {
 	if msg == nil {
-		return &base.ModelCallResponse{}
+		// An empty map, not a nil one. Callers add to GenerationInfo after this
+		// returns, and a nil map reads fine while panicking on the first write —
+		// so returning nil here turns a rare empty response into a crash in
+		// whichever caller happens to be adding a key.
+		return &base.ModelCallResponse{GenerationInfo: map[string]any{}}
 	}
 
 	var content strings.Builder

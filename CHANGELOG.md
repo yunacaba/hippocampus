@@ -3,6 +3,31 @@
 All notable changes to this project are documented here. This project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Anthropic request ids in `GenerationInfo`.** A successful Anthropic call now
+  reports the `Request-Id` response header under `base.GenerationInfoRequestID`,
+  on both the streaming and non-streaming paths. The adapter previously
+  discarded it — `responseFromAnthropic` receives only the decoded message and
+  never the `*http.Response` — which left callers unable to correlate a call
+  against provider-side records after the fact, the handle a support or trust &
+  safety notice cites. Captured per call via `option.WithResponseInto` rather
+  than client-wide middleware, since the client is shared across concurrent
+  calls and a shared destination would race. Absent when the header is (a proxy
+  may strip it); the key is omitted rather than set empty, so "no id" stays
+  distinguishable from an id worth looking up.
+
+  Failed calls report it too, by a route chosen by how they failed. An API error
+  already carries it on the error itself — the exported `anthropic.Error` has a
+  `RequestID` field, reachable via `errors.As` because the wrapping here uses
+  `%w`. A failure arriving *after* the response, such as a mid-stream connection
+  drop, is a transport error with no such field, so the id is recorded on the
+  call's span instead. That last case is the one worth naming: a long streaming
+  run that spends tokens and then dies is both the most expensive to leave
+  uncorrelated and the most likely to fail this way.
+
 ## [0.7.0] - 2026-06-17
 
 ### Added
