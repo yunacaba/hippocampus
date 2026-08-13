@@ -138,7 +138,8 @@ func optionsToLangchain(
 // Token metrics are populated by the caller from GenerationInfo.
 func responseFromLangchain(completion *llms.ContentResponse) *base.ModelCallResponse {
 	if completion == nil || len(completion.Choices) == 0 {
-		return &base.ModelCallResponse{}
+		// An empty map, not a nil one — see base.ModelCallResponse.GenerationInfo.
+		return &base.ModelCallResponse{GenerationInfo: base.WritableGenerationInfo(nil)}
 	}
 	choice := completion.Choices[0]
 
@@ -157,7 +158,7 @@ func responseFromLangchain(completion *llms.ContentResponse) *base.ModelCallResp
 	return &base.ModelCallResponse{
 		Content:          choice.Content,
 		StopReason:       choice.StopReason,
-		GenerationInfo:   choice.GenerationInfo,
+		GenerationInfo:   base.WritableGenerationInfo(choice.GenerationInfo),
 		ToolCalls:        toolCalls,
 		ReasoningContent: choice.ReasoningContent,
 	}

@@ -173,7 +173,8 @@ func applyOptions(params *oai.ChatCompletionNewParams, co base.CallOptions) {
 // responseFromOpenAI converts an OpenAI chat completion into an owned response.
 func responseFromOpenAI(completion *oai.ChatCompletion) *base.ModelCallResponse {
 	if completion == nil || len(completion.Choices) == 0 {
-		return &base.ModelCallResponse{}
+		// An empty map, not a nil one — see base.ModelCallResponse.GenerationInfo.
+		return &base.ModelCallResponse{GenerationInfo: base.WritableGenerationInfo(nil)}
 	}
 	choice := completion.Choices[0]
 	msg := choice.Message

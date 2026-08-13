@@ -184,6 +184,14 @@ type ModelCallResponse struct {
 	StopReason string
 
 	// GenerationInfo is arbitrary information the model adds to the response.
+	//
+	// Never nil on a response returned by an adapter, including for an empty or
+	// absent provider response. Callers add keys to it after the adapter
+	// returns — request ids, post-processing — and a nil map reads fine while
+	// panicking on the first write, so returning one turns a rare empty
+	// response into a crash in whichever caller happens to be adding a key.
+	// Adapters building this from provider-supplied data should pass it through
+	// WritableGenerationInfo.
 	GenerationInfo map[string]any
 
 	// ToolCalls is a list of tool calls the model asks to invoke.
@@ -216,3 +224,16 @@ type ModelCallResponse struct {
 // connection drop, is a transport error with no such field, so the id is
 // recorded on the call's span instead.
 const GenerationInfoRequestID = "RequestID"
+
+// WritableGenerationInfo returns info, or an empty map when info is nil, so a
+// ModelCallResponse always carries a map a caller may add to.
+//
+// The nil it guards against is not the adapter's own doing: a provider SDK may
+// hand back a nil map, and passing that straight through moves the panic to
+// whichever caller next adds a key — far from the adapter that let it past.
+func WritableGenerationInfo(info map[string]any) map[string]any {
+	if info == nil {
+		return map[string]any{}
+	}
+	return info
+}

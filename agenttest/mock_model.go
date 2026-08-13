@@ -76,6 +76,14 @@ func (m *MockModel) Generate(
 
 	response := m.responses[len(m.capturedInvocations)-1]
 
+	// Match what every real adapter guarantees: GenerationInfo is never nil
+	// (see base.ModelCallResponse). Fixtures are written as `{Content: "…"}`
+	// and so leave it nil, which would have tests exercise a response shape no
+	// adapter can produce — and would turn every mock-based test red at once
+	// the day generic post-processing starts adding a key, pointing the
+	// diagnosis at fixtures rather than at anything real.
+	response.GenerationInfo = base.WritableGenerationInfo(response.GenerationInfo)
+
 	// If streaming is configured and a streaming function is provided, simulate streaming
 	if request.StreamingFunc != nil && len(m.StreamingChunks) > 0 {
 		for _, chunk := range m.StreamingChunks {
