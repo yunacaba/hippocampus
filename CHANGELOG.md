@@ -31,13 +31,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **A returned `GenerationInfo` is never nil.** Every adapter's empty-response
-  path returned a `ModelCallResponse` with a nil `GenerationInfo`, and the
-  langchain adapter additionally forwarded langchaingo's own nil whenever the
-  underlying provider set none. A nil map reads fine and panics on the first
-  write, so a caller adding a key — as request-id reporting now does — crashed
-  on a response shape nothing else complained about. `base.ModelCallResponse`
-  documents the invariant and `base.WritableGenerationInfo` is how adapters
-  honour it.
+  path returned a `ModelCallResponse` with a nil `GenerationInfo`. A nil map
+  reads fine and panics on the first write, so a caller adding a key — as
+  Anthropic request-id reporting now does — crashed on a response shape nothing
+  else complained about. `base.ModelCallResponse` documents the invariant,
+  `base.WritableGenerationInfo` is how adapters honour it, and
+  `agenttest.MockModel` applies it too so fixtures cannot exercise a shape no
+  adapter produces.
+
+  The Anthropic empty path was a live panic. The langchain pass-through of
+  langchaingo's own map is defensive: neither provider that package can
+  construct omits `GenerationInfo` today, but the converter cannot see which
+  produced a response, so it normalises what it is handed.
 
 ## [0.7.0] - 2026-06-17
 
